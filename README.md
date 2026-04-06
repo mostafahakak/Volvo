@@ -35,6 +35,29 @@ API base URL (local): `http://127.0.0.1:8000/api/`
 
 Copy `volvo/env.example` to `.env` at the project root and adjust. Do **not** commit `.env`.
 
+## Render.com (this repo)
+
+The GitHub repo **`mostafahakak/Volvo`** has `manage.py` at the **repository root**. There is **no** `volvo-master/` folder on GitHub (that name is only the local folder on your PC).
+
+| Render setting | Use this |
+|----------------|----------|
+| **Root Directory** | **Leave empty** (or `.`). Do **not** set `volvo-master` — the build will fail with `cd: .../volvo-master: No such file or directory`. |
+| **Build Command** | `pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput` |
+| **Start Command** | `gunicorn volvo.wsgi:application --bind 0.0.0.0:$PORT` (or rely on `Procfile`) |
+| **Python version** | Match `PYTHON_VERSION` (e.g. `3.12.0`) if you set it. |
+
+### Environment variables (important)
+
+| Variable | Correct | Wrong |
+|----------|---------|--------|
+| `ALLOWED_HOSTS` | `volvo-bd1q.onrender.com` (hostname **only**) | `https://volvo-bd1q.onrender.com` — Django expects hostnames, not URLs. |
+| `DEBUG` | `False` | — |
+| `SECRET_KEY` | Long random string | Never commit or paste in public chats; rotate if leaked. |
+
+Add a **persistent disk** mounted at `/var/data` if you use `DATABASE_PATH=/var/data/db.sqlite3` and `MEDIA_ROOT=/var/data/media`.
+
+After a successful deploy, **Logs** should show Gunicorn and a line starting with `[Volvo API] WSGI loaded`.
+
 ## Production (Render / similar)
 
 Typical **build**:
