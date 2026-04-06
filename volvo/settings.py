@@ -96,13 +96,8 @@ WSGI_APPLICATION = 'volvo.wsgi.application'
 _sqlite_name = os.environ.get(
     "DATABASE_PATH", os.path.join(BASE_DIR, "db.sqlite3")
 )
-# SQLite parent dir (e.g. /var/data on Render). Skip failure during CI/build: disk not mounted yet.
-_sqlite_parent = os.path.dirname(os.path.abspath(_sqlite_name))
-if _sqlite_parent:
-    try:
-        os.makedirs(_sqlite_parent, exist_ok=True)
-    except OSError:
-        pass
+# Do not mkdir SQLite parent here: on Render's build, /var/data is read-only or absent.
+# Runtime: start_render.sh runs mkdir -p before migrate.
 
 DATABASES = {
     "default": {
