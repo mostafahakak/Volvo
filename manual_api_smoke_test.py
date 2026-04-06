@@ -41,32 +41,23 @@ pp(r.json())
 print()
 
 # ============================================================
-# 3. LOGIN (user not verified yet - need to fix is_verified)
+# 3. LOGIN (new signups are created with is_verified=True)
 # ============================================================
-print('=== 3. Login (before verify) ===')
-login_data = {'mobile': '01022884665', 'password': 'TestPass1234!'}
-r = requests.post(f'{BASE}/login', json=login_data)
-print(f'Status: {r.status_code}')
-pp(r.json())
-
-# Let's verify the user directly and retry login
 import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'volvo.settings')
 import django
 django.setup()
 from user.models import User
-u = User.objects.get(mobile='01022884665')
-u.is_verified = True
-u.save()
-print('\n--- User verified manually ---\n')
 
-print('=== 3b. Login (after verify) ===')
+print('=== 3. Login ===')
+login_data = {'mobile': '01022884665', 'password': 'TestPass1234!'}
 r = requests.post(f'{BASE}/login', json=login_data)
 print(f'Status: {r.status_code}')
 resp = r.json()
 pp(resp)
 TOKEN = resp.get('access', '')
 print(f'Token obtained: {bool(TOKEN)}')
+u = User.objects.get(mobile='01022884665')
 print()
 
 # ============================================================

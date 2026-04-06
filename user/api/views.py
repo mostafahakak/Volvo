@@ -70,8 +70,9 @@ class UpdateProfile(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         user = User.objects.filter(id=request.user.id).first()
-        mobile_check = User.objects.filter(mobile=request.data.get("mobile")).first()
-        if mobile_check:
+        new_mobile = request.data.get("mobile")
+        mobile_check = User.objects.filter(mobile=new_mobile).first()
+        if mobile_check and mobile_check.id != request.user.id:
             return Response(response_message.error("mobile_exist", ""), status=status.HTTP_400_BAD_REQUEST)
         serializer = UserSerializer2(instance=user, data=request.data)
         serializer.is_valid(raise_exception=True)

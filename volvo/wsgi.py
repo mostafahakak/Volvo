@@ -14,3 +14,7 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'volvo.settings')
 
 application = get_wsgi_application()
+
+from volvo.deployment_banner import print_deployment_banner  # noqa: E402
+
+print_deployment_banner("WSGI")

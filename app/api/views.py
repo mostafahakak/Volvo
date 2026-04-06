@@ -1,3 +1,5 @@
+import datetime
+
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -248,6 +250,17 @@ class RedeemPoints(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         service = Services.objects.filter(id=request.data.get('service_id')).first()
         print(service)
+        if not service:
+            return Response(
+                response_message.error("error", ""),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ut = getattr(request.user, "user_type", None)
+        if ut is None or not getattr(ut, "type", None):
+            return Response(
+                response_message.error("error", ""),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if "prime" in request.user.user_type.type:
             points = int(service.price / 20)
         elif "plus" in request.user.user_type.type:
