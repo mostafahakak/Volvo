@@ -96,6 +96,11 @@ WSGI_APPLICATION = 'volvo.wsgi.application'
 _sqlite_name = os.environ.get(
     "DATABASE_PATH", os.path.join(BASE_DIR, "db.sqlite3")
 )
+# SQLite needs the parent directory to exist (e.g. /var/data on Render at runtime).
+_sqlite_parent = os.path.dirname(os.path.abspath(_sqlite_name))
+if _sqlite_parent:
+    os.makedirs(_sqlite_parent, exist_ok=True)
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -138,6 +143,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", os.path.join(BASE_DIR, "media"))
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 MEDIA_URL = "/media/"
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field

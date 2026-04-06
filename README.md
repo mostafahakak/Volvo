@@ -42,8 +42,8 @@ The GitHub repo **`mostafahakak/Volvo`** has `manage.py` at the **repository roo
 | Render setting | Use this |
 |----------------|----------|
 | **Root Directory** | **Leave empty** (or `.`). Do **not** set `volvo-master` — the build will fail with `cd: .../volvo-master: No such file or directory`. |
-| **Build Command** | `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput` |
-| **Start Command** | `gunicorn volvo.wsgi:application --bind 0.0.0.0:$PORT` (or rely on `Procfile`) |
+| **Build Command** | `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py collectstatic --noinput` — **no `migrate` here**: the persistent disk is not mounted during build. |
+| **Start Command** | Leave **empty** to use `Procfile`, or set: `bash start_render.sh` (runs `migrate` then Gunicorn). |
 | **Python version** | Match `PYTHON_VERSION` (e.g. `3.12.0`) if you set it. |
 
 ### Environment variables (important)
@@ -56,6 +56,8 @@ The GitHub repo **`mostafahakak/Volvo`** has `manage.py` at the **repository roo
 
 Add a **persistent disk** mounted at `/var/data` if you use `DATABASE_PATH=/var/data/db.sqlite3` and `MEDIA_ROOT=/var/data/media`.
 
+**SQLite on Render:** migrations must run **when the web process starts** (see `start_render.sh`), not in the build command — otherwise you get `unable to open database file` because `/var/data` is only available after the disk mounts at runtime.
+
 After a successful deploy, **Logs** should show Gunicorn and a line starting with `[Volvo API] WSGI loaded`.
 
 ## Production (Render / similar)
@@ -63,15 +65,17 @@ After a successful deploy, **Logs** should show Gunicorn and a line starting wit
 Typical **build**:
 
 ```bash
-pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
+pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py collectstatic --noinput
 ```
+
+Do **not** run `migrate` in the build step if `DATABASE_PATH` points at a persistent disk — use `start_render.sh` / `Procfile` instead.
 
 `requirements.txt` is a **minimal** production set (Django, DRF, JWT, Gunicorn, **`django-import-export`** for `app/admin.py`, etc.). The previous large export is kept as `requirements-legacy.txt` for reference only.
 
-Typical **start** (see `Procfile`):
+Typical **start** (see `Procfile` → `start_render.sh`):
 
 ```bash
-gunicorn volvo.wsgi:application --bind 0.0.0.0:$PORT
+bash start_render.sh
 ```
 
 On boot, **Gunicorn** loads `volvo/wsgi.py`, which prints a line like:
