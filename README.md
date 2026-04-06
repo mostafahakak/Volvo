@@ -66,7 +66,7 @@ Typical **build**:
 pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
 ```
 
-`requirements.txt` is a **minimal** production set (Django, DRF, JWT, Gunicorn, etc.). The previous large export is kept as `requirements-legacy.txt` for reference only.
+`requirements.txt` is a **minimal** production set (Django, DRF, JWT, Gunicorn, **`django-import-export`** for `app/admin.py`, etc.). The previous large export is kept as `requirements-legacy.txt` for reference only.
 
 Typical **start** (see `Procfile`):
 

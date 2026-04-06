@@ -8,6 +8,7 @@ djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
 django-environ==0.11.2
 django-jazzmin==2.6.0
+django-import-export==4.1.1
 Pillow==10.4.0
 gunicorn==23.0.0
 firebase-admin==6.5.0
