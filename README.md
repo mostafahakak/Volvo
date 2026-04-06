@@ -42,7 +42,7 @@ The GitHub repo **`mostafahakak/Volvo`** has `manage.py` at the **repository roo
 | Render setting | Use this |
 |----------------|----------|
 | **Root Directory** | **Leave empty** (or `.`). Do **not** set `volvo-master` — the build will fail with `cd: .../volvo-master: No such file or directory`. |
-| **Build Command** | `pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput` |
+| **Build Command** | `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput` |
 | **Start Command** | `gunicorn volvo.wsgi:application --bind 0.0.0.0:$PORT` (or rely on `Procfile`) |
 | **Python version** | Match `PYTHON_VERSION` (e.g. `3.12.0`) if you set it. |
 
@@ -63,8 +63,10 @@ After a successful deploy, **Logs** should show Gunicorn and a line starting wit
 Typical **build**:
 
 ```bash
-pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
+pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py migrate --noinput && python manage.py collectstatic --noinput
 ```
+
+`requirements.txt` is a **minimal** production set (Django, DRF, JWT, Gunicorn, etc.). The previous large export is kept as `requirements-legacy.txt` for reference only.
 
 Typical **start** (see `Procfile`):
 
