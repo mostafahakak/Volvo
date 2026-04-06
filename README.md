@@ -39,12 +39,26 @@ Copy `volvo/env.example` to `.env` at the project root and adjust. Do **not** co
 
 The GitHub repo **`mostafahakak/Volvo`** has `manage.py` at the **repository root**. There is **no** `volvo-master/` folder on GitHub (that name is only the local folder on your PC).
 
-| Render setting | Use this |
-|----------------|----------|
-| **Root Directory** | **Leave empty** (or `.`). Do **not** set `volvo-master` — the build will fail with `cd: .../volvo-master: No such file or directory`. |
-| **Build Command** | `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py collectstatic --noinput` — **no `migrate` here**: the persistent disk is not mounted during build. |
-| **Start Command** | Leave **empty** to use `Procfile`, or set: `bash start_render.sh` (runs `migrate` then Gunicorn). |
-| **Python version** | Match `PYTHON_VERSION` (e.g. `3.12.0`) if you set it. |
+### Critical: `migrate` must NOT run during Build
+
+If your build log shows **`migrate.py`** or **`MigrationExecutor`**, your **Build Command in the Render dashboard still includes `migrate`**. Remove it. The **persistent disk is only mounted when the web process starts**, so `/var/data/db.sqlite3` cannot be opened during build — you will get `unable to open database file`.
+
+**Use the script in this repo (recommended):**
+
+| Render setting | Value |
+|----------------|--------|
+| **Root Directory** | **Empty** (not `volvo-master`). |
+| **Build Command** | `bash build_render.sh` |
+| **Start Command** | `bash start_render.sh` |
+
+`build_render.sh` only runs **pip + collectstatic**. `start_render.sh` runs **`mkdir` → `migrate` → gunicorn** when the disk exists.
+
+Alternative (same steps, no script): Build = `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py collectstatic --noinput` — **must not** contain `migrate`. Start = `bash start_render.sh` or empty (uses `Procfile` → `start_render.sh`).
+
+| Render setting | Notes |
+|----------------|--------|
+| **Python version** | e.g. `PYTHON_VERSION=3.12.0` in Environment. |
+| **Procfile** | `web: bash start_render.sh` — if **Start Command** is empty, Render uses this. |
 
 ### Environment variables (important)
 
@@ -62,13 +76,17 @@ After a successful deploy, **Logs** should show Gunicorn and a line starting wit
 
 ## Production (Render / similar)
 
-Typical **build**:
+Preferred **build** (same as `build_render.sh`):
+
+```bash
+bash build_render.sh
+```
+
+Or inline (never add `migrate` here):
 
 ```bash
 pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python manage.py collectstatic --noinput
 ```
-
-Do **not** run `migrate` in the build step if `DATABASE_PATH` points at a persistent disk — use `start_render.sh` / `Procfile` instead.
 
 `requirements.txt` is a **minimal** production set (Django, DRF, JWT, Gunicorn, **`django-import-export`** for `app/admin.py`, etc.). The previous large export is kept as `requirements-legacy.txt` for reference only.
 
