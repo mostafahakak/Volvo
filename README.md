@@ -56,7 +56,7 @@ The GitHub repo **`mostafahakak/Volvo`** has `manage.py` at the **repository roo
 
 Add a **persistent disk** mounted at `/var/data` if you use `DATABASE_PATH=/var/data/db.sqlite3` and `MEDIA_ROOT=/var/data/media`.
 
-**SQLite on Render:** migrations must run **when the web process starts** (see `start_render.sh`), not in the build command — otherwise you get `unable to open database file` because `/var/data` is only available after the disk mounts at runtime.
+**SQLite on Render:** migrations must run **when the web process starts** (see `start_render.sh`), not in the build command — otherwise you get `unable to open database file` because `/var/data` is only available after the disk mounts at runtime. During **build**, `/var/data` may be missing or read-only; settings tolerate that and `start_render.sh` creates directories at runtime.
 
 After a successful deploy, **Logs** should show Gunicorn and a line starting with `[Volvo API] WSGI loaded`.
 
