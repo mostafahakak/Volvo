@@ -1,6 +1,7 @@
 from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import UserManager as DjangoUserManager
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -45,6 +46,49 @@ class Branches(TimestampedModel):
 
 
 # Create your models here.
+class UserManager(DjangoUserManager):
+    """
+    Custom user manager so Django's `createsuperuser` works with USERNAME_FIELD=mobile.
+    We keep `username` optional and auto-generate it if missing.
+    """
+
+    def _normalize_mobile(self, mobile):
+        if mobile is None:
+            return mobile
+        return str(mobile).strip()
+
+    def create_user(self, mobile, email=None, password=None, **extra_fields):
+        if not mobile:
+            raise ValueError("The mobile must be set")
+
+        mobile = self._normalize_mobile(mobile)
+        email = self.normalize_email(email) if email else None
+
+        # Ensure `username` is present because AbstractUser expects it, but keep it derived.
+        username = extra_fields.get("username") or f"user_{mobile}"
+        extra_fields["username"] = username
+
+        user = self.model(mobile=mobile, email=email, **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, mobile, email=None, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(mobile, email=email, password=password, **extra_fields)
+
+
 class User(AbstractUser):
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
@@ -68,6 +112,8 @@ class User(AbstractUser):
     notification_token = models.CharField(max_length=10000, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     USERNAME_FIELD = "mobile"
+    REQUIRED_FIELDS = ["email"]
+    objects = UserManager()
 
     class Meta:
         ordering = ["-id"]
