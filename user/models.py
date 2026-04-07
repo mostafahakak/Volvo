@@ -94,6 +94,11 @@ class UserCars(TimestampedModel):
     plate_number = models.CharField(max_length=255, blank=True, null=True)
     car_document_front = models.ImageField(null=True, blank=True, upload_to="Car Document")
     car_document_back = models.ImageField(null=True, blank=True, upload_to="Car Document")
+    # Firebase Storage (or CDN) URLs — optional when using remote uploads instead of ImageField.
+    car_registration_front_url = models.URLField(max_length=2048, blank=True, null=True)
+    car_registration_back_url = models.URLField(max_length=2048, blank=True, null=True)
+    driver_license_front_url = models.URLField(max_length=2048, blank=True, null=True)
+    driver_license_back_url = models.URLField(max_length=2048, blank=True, null=True)
 
     def __str__(self):
         return self.user.first_name + "-" + self.user.last_name + "-" + self.car_model.car_model
