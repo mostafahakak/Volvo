@@ -184,12 +184,40 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_LIFETIME": timedelta(minutes=5),
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
+# Firebase Admin must use the SAME GCP project as the mobile app (see android google-services.json project_id).
+# If this is wrong, verify_id_token() always fails → 401 "Invalid or expired Firebase token".
+# Render: set FIREBASE_SERVICE_ACCOUNT_JSON (full JSON) or FIREBASE_CREDENTIALS_PATH (path to service account file).
 try:
+    import json
+
     import firebase_admin
     from firebase_admin import credentials
-    firebase_cred_path = os.path.join(BASE_DIR, "volvo-c09c7-firebase-adminsdk-cf30h-640174d863.json")
-    if os.path.exists(firebase_cred_path):
-        cred = credentials.Certificate(firebase_cred_path)
-        firebase_admin.initialize_app(cred)
+
+    try:
+        firebase_admin.get_app()
+    except ValueError:
+        _cred = None
+        _raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+        if _raw:
+            _raw = _raw.strip()
+            if (_raw.startswith("'") and _raw.endswith("'")) or (
+                _raw.startswith('"') and _raw.endswith('"')
+            ):
+                _raw = _raw[1:-1]
+            _cred = credentials.Certificate(json.loads(_raw))
+        else:
+            _path = os.environ.get("FIREBASE_CREDENTIALS_PATH") or os.environ.get(
+                "GOOGLE_APPLICATION_CREDENTIALS"
+            )
+            if _path and Path(_path).exists():
+                _cred = credentials.Certificate(_path)
+            else:
+                _legacy = (
+                    BASE_DIR / "volvo-c09c7-firebase-adminsdk-cf30h-640174d863.json"
+                )
+                if _legacy.exists():
+                    _cred = credentials.Certificate(str(_legacy))
+        if _cred is not None:
+            firebase_admin.initialize_app(_cred)
 except Exception as e:
     print(f"Firebase initialization skipped: {e}")

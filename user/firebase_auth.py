@@ -19,5 +19,6 @@ def verify_firebase_id_token(id_token: str) -> Optional[Dict[str, Any]]:
 
         return auth.verify_id_token(id_token)
     except Exception as e:
-        logger.warning("verify_id_token failed: %s", e)
+        # Common causes: wrong service account project vs mobile app, or Admin SDK not initialized on server.
+        logger.warning("verify_id_token failed (%s): %s", type(e).__name__, e)
         return None
