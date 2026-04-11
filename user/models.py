@@ -96,10 +96,9 @@ class User(AbstractUser):
     email = models.EmailField(
         _("email address"),
         max_length=125,
-        unique=True,
-        error_messages={
-            "unique": _("A user with that email already exists."),
-        },
+        blank=True,
+        null=True,
+        unique=False,
     )
     mobile = models.CharField(_("mobile"), max_length=20, null=True, blank=True, unique=True)
     avatar = models.FileField(
@@ -112,7 +111,7 @@ class User(AbstractUser):
     notification_token = models.CharField(max_length=10000, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     USERNAME_FIELD = "mobile"
-    REQUIRED_FIELDS = ["email"]
+    REQUIRED_FIELDS = []
     objects = UserManager()
 
     class Meta:
@@ -121,7 +120,7 @@ class User(AbstractUser):
         verbose_name_plural = _("User")
 
     def __str__(self):
-        return self.email
+        return self.mobile or self.email or str(self.pk)
 
 
 class CarModels(TimestampedModel):

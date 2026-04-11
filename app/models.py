@@ -29,21 +29,54 @@ class Services(TimestampedModel):
     name = models.CharField(max_length=255, blank=True, null=True)
     icons = models.ImageField(upload_to="services", null=True, blank=True)
     points = models.IntegerField(null=True, blank=True)
+    # If set, this service can only be booked at this branch (e.g. سمكرة و دهان — Katameya only).
+    only_at_branch = models.ForeignKey(
+        Branches,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="exclusive_services",
+    )
+    line_items_ar = models.TextField(blank=True, null=True)
+    price_note_ar = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
 
 
 class Booking(TimestampedModel):
+    WORKFLOW_PENDING = "pending_confirmation"
+    WORKFLOW_CONFIRMED = "confirmed"
+    WORKFLOW_IN_PROGRESS = "in_progress"
+    WORKFLOW_COMPLETED = "completed"
+    WORKFLOW_CANCELLED = "cancelled"
+    WORKFLOW_CHOICES = (
+        (WORKFLOW_PENDING, "Pending confirmation"),
+        (WORKFLOW_CONFIRMED, "Confirmed"),
+        (WORKFLOW_IN_PROGRESS, "In progress"),
+        (WORKFLOW_COMPLETED, "Completed"),
+        (WORKFLOW_CANCELLED, "Cancelled"),
+    )
+
     user_car = models.ForeignKey(UserCars, on_delete=models.CASCADE, blank=True, null=True)
     branch = models.ForeignKey(Branches, on_delete=models.CASCADE, blank=True, null=True)
     service = models.ManyToManyField(Services, related_name="book_a_service", blank=True)
     time = models.ForeignKey(Timing, on_delete=models.CASCADE, blank=True, null=True)
     date = models.CharField(max_length=20, blank=True, null=True)
     status = models.BooleanField(default=False)
+    # 0, 1, or 2 — three concurrent bookings per hour slot (12:00–18:00 flow).
+    slot_index = models.PositiveSmallIntegerField(default=0)
+    workflow_status = models.CharField(
+        max_length=32,
+        choices=WORKFLOW_CHOICES,
+        default=WORKFLOW_PENDING,
+        db_index=True,
+    )
 
     def __str__(self):
-        return self.user_car.user.mobile + " " + str(self.branch.name)
+        u = self.user_car.user.mobile if self.user_car and self.user_car.user else ""
+        b = self.branch.name if self.branch else ""
+        return f"{u} {b}"
 
 
 class Accessories(TimestampedModel):

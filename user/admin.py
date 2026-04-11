@@ -1,17 +1,16 @@
 from django.contrib import admin
 
-from user.models import *
+from user.models import CarModels, LoyaltyPoints, User, UserCars, UserRequests
 
-# class YourModelAdmin(admin.ModelAdmin):
-#     def get_queryset(self, request):
-#         qs = super().get_queryset(request)
-#         if not request.user.is_superuser:
-#             # Filter the queryset based on the user's branch
-#             qs = qs.filter(branch=request.user.branch)
-#         return qs
 
-# Register your models here.
-admin.site.register(User)
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ("id", "mobile", "email", "first_name", "last_name", "is_verified", "is_staff")
+    list_filter = ("is_verified", "is_staff", "is_superuser")
+    search_fields = ("mobile", "first_name", "last_name", "email")
+    ordering = ("-id",)
+
+
 admin.site.register(UserCars)
 admin.site.register(CarModels)
 admin.site.register(LoyaltyPoints)

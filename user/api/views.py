@@ -3,17 +3,83 @@ from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-import requests
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 import app.messages as response_message
 from app.models import MyHistory
 from user.api.serializer import RegisterSerializer, LoginSerializer, UserCarsSerializer, UserSerializer, \
     LoyaltySerializer, UserSerializer2
+from user.firebase_auth import verify_firebase_id_token
 from user.models import User, LoyaltyPoints, UserRequests
 
 
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
+
+
+def _normalize_phone(s):
+    if not s:
+        return ""
+    return "".join(s.split())
+
+
+class FirebasePhoneAuthView(APIView):
+    """
+    After Firebase Phone Auth on the client, send the Firebase ID token.
+    Creates a local user if missing (pending admin verification: is_verified=False).
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        id_token = request.data.get("id_token") or request.data.get("idToken")
+        mobile = _normalize_phone(request.data.get("mobile") or request.data.get("phone") or "")
+        first_name = (request.data.get("first_name") or "").strip() or "User"
+        last_name = (request.data.get("last_name") or "").strip() or ""
+
+        if not mobile:
+            return Response(
+                {"error": "mobile is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        decoded = verify_firebase_id_token(id_token) if id_token else None
+        phone_from_token = (decoded or {}).get("phone_number") or ""
+        phone_from_token = _normalize_phone(phone_from_token)
+
+        if decoded is None:
+            return Response(
+                {"error": "Invalid or expired Firebase token"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if phone_from_token and phone_from_token != mobile:
+            return Response(
+                {"error": "Phone number does not match Firebase token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(mobile=mobile).first()
+        if not user:
+            user = User.objects.create_user(
+                mobile=mobile,
+                email=None,
+                password=None,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            user.is_verified = False
+            user.save()
+            UserRequests.objects.create(user=user)
+
+        refresh = RefreshToken.for_user(user)
+        payload = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user_data": UserSerializer(user).data,
+        }
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class SignUp(generics.CreateAPIView):
@@ -23,9 +89,7 @@ class SignUp(generics.CreateAPIView):
             return Response({"error": "This Mobile Used Before"}, status=status.HTTP_400_BAD_REQUEST)
         created_user = RegisterSerializer(data=request.data)
         created_user.is_valid(raise_exception=True)
-        created_user.save()
-        print(created_user.data)
-        user = User.objects.filter(id=created_user.data.get('id')).first()
+        user = created_user.save()
         UserRequests.objects.create(user=user).save()
         # user_data = {
         #     "mobile": created_user.data.get('mobile'),

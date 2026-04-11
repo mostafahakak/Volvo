@@ -6,6 +6,7 @@ urlpatterns = [
     path("list_car_model", ListCarModel.as_view(), name="list_car_model"),
     path("maintenance_schedule", ListMaintenanceSchedule.as_view(), name="maintenance_schedule"),
     path("my_history", ListMyHistory.as_view(), name="my_history"),
+    path("my_service_bookings", ListMyServiceBookings.as_view(), name="my_service_bookings"),
     path("list_user_cars", ListUserCars.as_view(), name="list_user_cars"),
     path("list_branches", ListBranches.as_view(), name="list_branches"),
     path("list_branches_slot", ListBranchSlot.as_view(), name="list_branches_slot"),

@@ -12,6 +12,32 @@ class ServicesSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class BookingHistorySerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source="branch.name", read_only=True)
+    time_display = serializers.TimeField(source="time.time", format="%H:%M", read_only=True)
+    services = serializers.SerializerMethodField()
+    car_model = serializers.CharField(source="user_car.car_model.car_model", read_only=True)
+    car_plate = serializers.CharField(source="user_car.plate_number", read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = (
+            "id",
+            "date",
+            "time_display",
+            "branch_name",
+            "workflow_status",
+            "slot_index",
+            "services",
+            "car_model",
+            "car_plate",
+            "created_at",
+        )
+
+    def get_services(self, obj):
+        return [{"id": s.id, "name": s.name} for s in obj.service.all()]
+
+
 class CarModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarModels
