@@ -24,6 +24,17 @@ def _normalize_phone(s):
     return "".join(s.split())
 
 
+def _normalize_phone_e164(s):
+    """
+    Collapse whitespace then fix common Egypt typo: +2001... → +201...
+    (leading0 after country code 20).
+    """
+    d = _normalize_phone(s)
+    if d.startswith("+20") and len(d) > 4 and d[4] == "0":
+        d = "+20" + d[5:]
+    return d
+
+
 class FirebasePhoneAuthView(APIView):
     """
     After Firebase Phone Auth on the client, send the Firebase ID token.
@@ -34,7 +45,9 @@ class FirebasePhoneAuthView(APIView):
 
     def post(self, request, *args, **kwargs):
         id_token = request.data.get("id_token") or request.data.get("idToken")
-        mobile = _normalize_phone(request.data.get("mobile") or request.data.get("phone") or "")
+        mobile = _normalize_phone_e164(
+            request.data.get("mobile") or request.data.get("phone") or ""
+        )
         first_name = (request.data.get("first_name") or "").strip() or "User"
         last_name = (request.data.get("last_name") or "").strip() or ""
 
@@ -46,7 +59,7 @@ class FirebasePhoneAuthView(APIView):
 
         decoded = verify_firebase_id_token(id_token) if id_token else None
         phone_from_token = (decoded or {}).get("phone_number") or ""
-        phone_from_token = _normalize_phone(phone_from_token)
+        phone_from_token = _normalize_phone_e164(phone_from_token)
 
         if decoded is None:
             return Response(
