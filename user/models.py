@@ -1,4 +1,5 @@
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
@@ -110,6 +111,8 @@ class User(AbstractUser):
     user_type = models.ForeignKey(LoyaltyPoints, blank=True, null=True, on_delete=models.CASCADE)
     notification_token = models.CharField(max_length=10000, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
+    next_service_km = models.IntegerField(default=0)
+    next_service_date = models.DateField(default=timezone.localdate)
     USERNAME_FIELD = "mobile"
     REQUIRED_FIELDS = []
     objects = UserManager()
@@ -121,6 +124,14 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.mobile or self.email or str(self.pk)
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            if self.next_service_date is None:
+                self.next_service_date = timezone.localdate()
+            if self.next_service_km is None:
+                self.next_service_km = 0
+        super().save(*args, **kwargs)
 
 
 class CarModels(TimestampedModel):

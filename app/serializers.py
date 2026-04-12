@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from app.models import MaintenanceSchedule, MyHistory, Branches, BranchSlot, Services, Accessories, UsedCar, \
     UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, Timing, Booking, TechnicalAssistant, \
-    RoadAssistantRequest
+    RoadAssistantRequest, SiteContactSettings
 from user.models import CarModels, UserCars
 
 
@@ -148,3 +148,16 @@ class RoadAssistantRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoadAssistantRequest
         fields = "__all__"
+
+
+class SiteContactSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteContactSettings
+        fields = (
+            "id",
+            "whatsapp_e164",
+            "tech_hotline_e164",
+            "winch_primary",
+            "winch_secondary",
+            "updated_at",
+        )

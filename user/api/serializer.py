@@ -21,6 +21,8 @@ class UserSerializer(serializers.ModelSerializer):
             "avatar",
             "mypoints",
             "is_verified",
+            "next_service_km",
+            "next_service_date",
         ]
         extra_kwargs = {"password": {"write_only": True}}
 
@@ -38,6 +40,8 @@ class UserSerializer2(serializers.ModelSerializer):
             "avatar",
             "mypoints",
             "is_verified",
+            "next_service_km",
+            "next_service_date",
         ]
 
 

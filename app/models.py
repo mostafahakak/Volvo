@@ -245,3 +245,27 @@ class TechnicalAssistant(TimestampedModel):
 
     def __str__(self):
         return self.user.first_name + "  " + self.user.last_name
+
+
+class SiteContactSettings(TimestampedModel):
+    """
+    Singleton row (pk=1) for hotline / WhatsApp / winch numbers editable from admin dashboard.
+    Mobile app can read via public GET /api/site_contact_settings.
+    """
+
+    whatsapp_e164 = models.CharField(max_length=32, blank=True, default="")
+    tech_hotline_e164 = models.CharField(max_length=32, blank=True, default="")
+    winch_primary = models.CharField(max_length=64, blank=True, default="")
+    winch_secondary = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        verbose_name = "Site contact settings"
+        verbose_name_plural = "Site contact settings"
+
+    def __str__(self):
+        return "Site contact settings"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

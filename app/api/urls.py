@@ -25,5 +25,10 @@ urlpatterns = [
     path("road_help", CreateRoadAssistantRequest.as_view(), name="road_help"),
     path("book_a_service", BookAService.as_view(), name="book_a_service"),
     path("redeem_points", RedeemPoints.as_view(), name="redeem_points"),
+    path(
+        "site_contact_settings",
+        SiteContactSettingsPublicView.as_view(),
+        name="site_contact_settings",
+    ),
 
 ]

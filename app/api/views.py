@@ -4,9 +4,10 @@ from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.views import APIView
 import app.messages as response_message
 from app.models import MyHistory, MaintenanceSchedule, Branches, BranchSlot, Services, Accessories, UsedCarsImage, \
-    UsedCar, AboutUS, Timing, Booking, TechnicalAssistant
+    UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings
 from app.serializers import *
 from user.models import CarModels, UserCars
 
@@ -161,6 +162,19 @@ class ListOffers(generics.ListAPIView):
             access['price_after'] = access.get("price") - (access.get("price") * (access.get("discount") / 100))
             data.append(access)
         return Response(response_message.success(data, success_key="success"), status=status.HTTP_200_OK)
+
+
+class SiteContactSettingsPublicView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        s = SiteContactSettings.get_solo()
+        from app.serializers import SiteContactSettingsSerializer
+
+        return Response(
+            response_message.success(SiteContactSettingsSerializer(s).data, success_key="success"),
+            status=status.HTTP_200_OK,
+        )
 
 
 class ListAboutUs(generics.ListAPIView):
