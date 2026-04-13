@@ -38,11 +38,14 @@ if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_CREDENTIALS = False
 else:
+    # Firebase Hosting admin dashboard (Next static export). Override/extend via CORS_ALLOWED_ORIGINS on Render.
     CORS_ALLOWED_ORIGINS = env.list(
         "CORS_ALLOWED_ORIGINS",
         default=[
             "http://localhost:3000",
             "http://127.0.0.1:3000",
+            "https://volvoegyptapp.web.app",
+            "https://volvoegyptapp.firebaseapp.com",
         ],
     )
     CORS_ALLOW_CREDENTIALS = True
