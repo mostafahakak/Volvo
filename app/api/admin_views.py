@@ -13,6 +13,7 @@ from app.api.admin_serializers import (
     AdminBookingUpdateSerializer,
     AdminLoyaltySerializer,
     AdminSiteContactSerializer,
+    AdminUserCreateSerializer,
     AdminUserSerializer,
     AdminUserUpdateSerializer,
 )
@@ -59,6 +60,20 @@ class AdminLoginView(APIView):
             "user_data": UserSerializer(user).data,
         }
         return Response(payload, status=status.HTTP_200_OK)
+
+
+class AdminUserCreateView(generics.CreateAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminUserCreateSerializer
+
+    def create(self, request, *args, **kwargs):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user = ser.save()
+        return Response(
+            response_message.success(AdminUserSerializer(user).data, "success"),
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AdminUserListView(generics.ListAPIView):

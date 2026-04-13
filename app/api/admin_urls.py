@@ -4,6 +4,7 @@ from app.api import admin_views
 
 urlpatterns = [
     path("login/", admin_views.AdminLoginView.as_view(), name="admin_login"),
+    path("users/create/", admin_views.AdminUserCreateView.as_view(), name="admin_users_create"),
     path("users/", admin_views.AdminUserListView.as_view(), name="admin_users"),
     path("users/<int:pk>/", admin_views.AdminUserDetailView.as_view(), name="admin_user_detail"),
     path("bookings/", admin_views.AdminBookingListView.as_view(), name="admin_bookings"),

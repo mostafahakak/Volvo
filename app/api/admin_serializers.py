@@ -26,8 +26,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "loyalty_id",
             "date_joined",
             "is_staff",
+            "is_superuser",
         )
-        read_only_fields = ("date_joined", "is_staff")
+        read_only_fields = ("date_joined", "is_staff", "is_superuser")
 
 
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
@@ -40,7 +41,60 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
             "next_service_date",
             "mypoints",
             "history_points",
+            "is_staff",
+            "is_superuser",
         )
+
+
+class AdminUserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = (
+            "mobile",
+            "email",
+            "first_name",
+            "last_name",
+            "password",
+            "is_staff",
+            "is_superuser",
+        )
+
+    def validate_mobile(self, value):
+        v = (value or "").strip()
+        if User.objects.filter(mobile=v).exists():
+            raise serializers.ValidationError("This mobile is already registered.")
+        return v
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        is_superuser = validated_data.pop("is_superuser", False)
+        is_staff = validated_data.pop("is_staff", False)
+        mobile = validated_data.pop("mobile")
+        email = (validated_data.pop("email", None) or "").strip() or None
+        first_name = (validated_data.pop("first_name", None) or "") or ""
+        last_name = (validated_data.pop("last_name", None) or "") or ""
+
+        if is_superuser:
+            return User.objects.create_superuser(
+                mobile=mobile,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+        user = User.objects.create_user(
+            mobile=mobile,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        if is_staff:
+            user.is_staff = True
+            user.save(update_fields=["is_staff"])
+        return user
 
 
 class AdminBookingSerializer(serializers.ModelSerializer):
