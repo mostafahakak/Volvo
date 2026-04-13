@@ -32,14 +32,20 @@ DEBUG = env.bool("DEBUG", default=True)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
-CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS",
-    default=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
-)
-CORS_ALLOW_CREDENTIALS = True
+# CORS: in DEBUG, allow any browser origin (covers Next dev on LAN, e.g. http://192.168.x.x:3000).
+# In production, set CORS_ALLOWED_ORIGINS to your dashboard URL(s), e.g. https://admin.example.com
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_CREDENTIALS = False
+else:
+    CORS_ALLOWED_ORIGINS = env.list(
+        "CORS_ALLOWED_ORIGINS",
+        default=[
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+    )
+    CORS_ALLOW_CREDENTIALS = True
 
 # Application definition
 
