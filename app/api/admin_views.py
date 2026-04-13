@@ -33,8 +33,21 @@ class AdminLoginView(APIView):
                 {"detail": "email and password required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        user = User.objects.filter(email__iexact=email, is_staff=True).first()
-        if not user or not user.check_password(password):
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            return Response(
+                response_message.error("invalid_credentials", "Invalid credentials"),
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if not user.is_staff:
+            return Response(
+                response_message.error(
+                    "error",
+                    "This email is not a staff account. On the server run: python manage.py create_dashboard_admin",
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not user.check_password(password):
             return Response(
                 response_message.error("invalid_credentials", "Invalid credentials"),
                 status=status.HTTP_401_UNAUTHORIZED,
