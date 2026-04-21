@@ -137,6 +137,10 @@ class User(AbstractUser):
 class CarModels(TimestampedModel):
     car_model = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(null=True, blank=True, upload_to="Users Cars")
+    year_from = models.IntegerField(null=True, blank=True)
+    year_to = models.IntegerField(null=True, blank=True)
+    model_type = models.CharField(max_length=255, blank=True, null=True)
+    details = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.car_model

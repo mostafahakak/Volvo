@@ -1,3 +1,5 @@
+import datetime
+
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -13,14 +15,15 @@ from app.api.admin_serializers import (
     AdminBookingUpdateSerializer,
     AdminLoyaltySerializer,
     AdminSiteContactSerializer,
+    AdminUserCarListSerializer,
     AdminUserCreateSerializer,
     AdminUserSerializer,
     AdminUserUpdateSerializer,
 )
-from app.models import Accessories, Booking, MaintenanceSchedule, Services, SiteContactSettings
+from app.models import Accessories, Booking, MaintenanceSchedule, Services, SiteContactSettings, Timing
 from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, ServicesSerializer, BranchesSerializer
 from user.api.serializer import UserSerializer
-from user.models import Branches, CarModels, LoyaltyPoints, User
+from user.models import Branches, CarModels, LoyaltyPoints, User, UserCars
 
 
 class AdminLoginView(APIView):
@@ -100,7 +103,7 @@ class AdminUserListView(generics.ListAPIView):
         )
 
 
-class AdminUserDetailView(generics.RetrieveUpdateAPIView):
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = User.objects.all().select_related("user_type")
     serializer_class = AdminUserSerializer
@@ -122,6 +125,133 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
         user = self.get_object()
         return Response(
             response_message.success(AdminUserSerializer(user).data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        if user.pk == request.user.pk:
+            return Response(
+                response_message.error("error", "You cannot delete your own account."),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_destroy(user)
+        return Response(
+            response_message.success({"deleted": True}, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminBookingCreateView(APIView):
+    """Create a service booking on behalf of any user (no is_verified / car-ownership checks)."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        service_ids = request.data.get("services") or []
+        if not service_ids:
+            return Response(
+                response_message.error("error", "At least one service is required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(service_ids) != len(set(service_ids)):
+            return Response(
+                response_message.error("error", "Duplicate service ids are not allowed"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        services = Services.objects.filter(id__in=service_ids)
+        if services.count() != len(set(service_ids)):
+            return Response(
+                response_message.error("error", "Invalid service id"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        time = Timing.objects.filter(id=request.data.get("time_id")).first()
+        user_car = UserCars.objects.filter(id=request.data.get("user_car")).first()
+        branch = Branches.objects.filter(id=request.data.get("branch_id")).first()
+        date = request.data.get("date")
+        if not all([time, user_car, branch, date]):
+            return Response(
+                response_message.error("error", "user_car, branch_id, time_id, and date are required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            d = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+            if d.weekday() == 4:
+                return Response(
+                    response_message.error("error", "Fridays are closed for booking"),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except (TypeError, ValueError):
+            return Response(
+                response_message.error("error", "date must be YYYY-MM-DD"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        for svc in services:
+            if svc.only_at_branch_id and svc.only_at_branch_id != branch.id:
+                return Response(
+                    response_message.error(
+                        "error",
+                        f'Service "{svc.name}" is only available at branch {svc.only_at_branch.name}',
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        try:
+            slot_index = int(request.data.get("slot_index", 0))
+        except (TypeError, ValueError):
+            return Response(
+                response_message.error("error", "slot_index must be 0, 1, or 2"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if slot_index not in (0, 1, 2):
+            return Response(
+                response_message.error("error", "slot_index must be 0, 1, or 2"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if Booking.objects.filter(
+            branch=branch, time=time, date=date, slot_index=slot_index, status=False
+        ).exclude(workflow_status=Booking.WORKFLOW_CANCELLED).exists():
+            return Response(
+                response_message.error("error", "This time slot is already reserved"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        booking = Booking.objects.create(
+            user_car=user_car,
+            branch=branch,
+            time=time,
+            date=date,
+            slot_index=slot_index,
+            workflow_status=Booking.WORKFLOW_PENDING,
+        )
+        for service in services:
+            booking.service.add(service)
+        booking.save()
+        booking = (
+            Booking.objects.filter(pk=booking.pk)
+            .select_related("branch", "time", "user_car", "user_car__user", "user_car__car_model")
+            .prefetch_related("service")
+            .first()
+        )
+        return Response(
+            response_message.success(AdminBookingSerializer(booking).data, "success"),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminUserCarsListView(generics.ListAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminUserCarListSerializer
+
+    def get_queryset(self):
+        qs = UserCars.objects.all().select_related("car_model", "user").order_by("-id")
+        uid = self.request.query_params.get("user_id")
+        if uid:
+            qs = qs.filter(user_id=uid)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
             status=status.HTTP_200_OK,
         )
 
@@ -206,12 +336,53 @@ class AdminBranchesListView(APIView):
         return Response(response_message.success(data, "success"), status=status.HTTP_200_OK)
 
 
-class AdminCarModelsListView(APIView):
+class AdminCarModelsListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
+    queryset = CarModels.objects.all().order_by("car_model")
+    serializer_class = CarModelSerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
-    def get(self, request, *args, **kwargs):
-        data = CarModelSerializer(CarModels.objects.all().order_by("car_model"), many=True).data
-        return Response(response_message.success(data, "success"), status=status.HTTP_200_OK)
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminCarModelDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = CarModels.objects.all()
+    serializer_class = CarModelSerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(
+            response_message.success({"deleted": True}, "success"),
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminServicesListCreateView(generics.ListCreateAPIView):
@@ -312,7 +483,7 @@ class AdminAccessoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class AdminMaintenanceListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
-    queryset = MaintenanceSchedule.objects.all().order_by("-id")
+    queryset = MaintenanceSchedule.objects.all().select_related("car_model").order_by("-id")
     serializer_class = MaintenanceScheduleSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
@@ -333,7 +504,7 @@ class AdminMaintenanceListCreateView(generics.ListCreateAPIView):
 
 class AdminMaintenanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
-    queryset = MaintenanceSchedule.objects.all()
+    queryset = MaintenanceSchedule.objects.all().select_related("car_model")
     serializer_class = MaintenanceScheduleSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 

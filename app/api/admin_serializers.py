@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from app.models import Accessories, Booking, MaintenanceSchedule, Services, SiteContactSettings
-from user.models import CarModels, LoyaltyPoints, User
+from user.models import CarModels, LoyaltyPoints, User, UserCars
 
 
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -150,6 +150,13 @@ class AdminAccessorySerializer(serializers.ModelSerializer):
         model = Accessories
         fields = "__all__"
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["compatible_with_models"] = [
+            {"id": c.id, "car_model": c.car_model} for c in instance.compatible_with.all()
+        ]
+        return data
+
 
 class AdminLoyaltySerializer(serializers.ModelSerializer):
     class Meta:
@@ -165,4 +172,20 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
             "tech_hotline_e164",
             "winch_primary",
             "winch_secondary",
+        )
+
+
+class AdminUserCarListSerializer(serializers.ModelSerializer):
+    car_model_name = serializers.CharField(source="car_model.car_model", read_only=True)
+
+    class Meta:
+        model = UserCars
+        fields = (
+            "id",
+            "user",
+            "car_model",
+            "car_model_name",
+            "model_year",
+            "plate_number",
+            "chassis_number",
         )

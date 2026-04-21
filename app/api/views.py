@@ -26,8 +26,11 @@ class ListMaintenanceSchedule(generics.ListAPIView):
     # permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        maintenace = MaintenanceSchedule.objects.all()
-        serializer = MaintenanceScheduleSerializer(maintenace, many=True)
+        qs = MaintenanceSchedule.objects.all().select_related("car_model")
+        cm = request.query_params.get("car_model_id")
+        if cm:
+            qs = qs.filter(car_model_id=cm)
+        serializer = MaintenanceScheduleSerializer(qs, many=True)
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 

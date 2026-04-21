@@ -125,6 +125,13 @@ class UsedCarsImage(TimestampedModel):
 
 class MaintenanceSchedule(TimestampedModel):
     description = models.ImageField('images', null=True, blank=True)
+    car_model = models.ForeignKey(
+        CarModels,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="maintenance_schedules",
+    )
 
 
 class MyHistory(TimestampedModel):

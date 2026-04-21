@@ -45,6 +45,8 @@ class CarModelSerializer(serializers.ModelSerializer):
 
 
 class MaintenanceScheduleSerializer(serializers.ModelSerializer):
+    car_model_name = serializers.CharField(source="car_model.car_model", read_only=True, allow_null=True)
+
     class Meta:
         model = MaintenanceSchedule
         fields = "__all__"
