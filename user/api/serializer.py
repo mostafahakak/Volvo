@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from app.models import SiteContactSettings
 from user.base64 import Base64FileField
 from user.models import User, UserCars, LoyaltyPoints
 
@@ -98,6 +99,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data["last_name"],
         )
         user.is_verified = False
+        SiteContactSettings.get_solo().apply_starting_points_to_user(user)
         user.save()
 
         return user

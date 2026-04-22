@@ -10,6 +10,7 @@ urlpatterns = [
     path("bookings/create/", admin_views.AdminBookingCreateView.as_view(), name="admin_booking_create"),
     path("bookings/", admin_views.AdminBookingListView.as_view(), name="admin_bookings"),
     path("bookings/<int:pk>/", admin_views.AdminBookingDetailView.as_view(), name="admin_booking_detail"),
+    path("loyalty_levels/<int:pk>/", admin_views.AdminLoyaltyDetailView.as_view(), name="admin_loyalty_detail"),
     path("loyalty_levels/", admin_views.AdminLoyaltyListView.as_view(), name="admin_loyalty"),
     path("branches/", admin_views.AdminBranchesListView.as_view(), name="admin_branches"),
     path("car_models/<int:pk>/", admin_views.AdminCarModelDetailView.as_view(), name="admin_car_model_detail"),

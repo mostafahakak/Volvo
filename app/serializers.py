@@ -161,5 +161,8 @@ class SiteContactSettingsSerializer(serializers.ModelSerializer):
             "tech_hotline_e164",
             "winch_primary",
             "winch_secondary",
+            "app_theme_default",
+            "user_can_change_theme",
+            "new_user_default_points",
             "updated_at",
         )

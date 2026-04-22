@@ -264,6 +264,20 @@ class SiteContactSettings(TimestampedModel):
     tech_hotline_e164 = models.CharField(max_length=32, blank=True, default="")
     winch_primary = models.CharField(max_length=64, blank=True, default="")
     winch_secondary = models.CharField(max_length=64, blank=True, default="")
+    # App theming: default when user is not allowed to pick, or initial recommendation.
+    app_theme_default = models.CharField(
+        max_length=16,
+        default="light",
+        help_text="light, dark, or system",
+    )
+    user_can_change_theme = models.BooleanField(
+        default=True,
+        help_text="If false, the app always uses app_theme_default.",
+    )
+    new_user_default_points = models.IntegerField(
+        default=20,
+        help_text="Starting points balance and history for new app accounts.",
+    )
 
     class Meta:
         verbose_name = "Site contact settings"
@@ -276,3 +290,9 @@ class SiteContactSettings(TimestampedModel):
     def get_solo(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+    def apply_starting_points_to_user(self, user):
+        """Set mypoints and history from dashboard-configured new_user_default_points."""
+        n = self.new_user_default_points
+        user.mypoints = n
+        user.history_points = n

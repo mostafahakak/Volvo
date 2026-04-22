@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 import app.messages as response_message
-from app.models import MyHistory
+from app.models import MyHistory, SiteContactSettings
 from user.api.serializer import RegisterSerializer, LoginSerializer, UserCarsSerializer, UserSerializer, \
     LoyaltySerializer, UserSerializer2
 from user.firebase_auth import verify_firebase_id_token
@@ -83,6 +83,7 @@ class FirebasePhoneAuthView(APIView):
                 last_name=last_name,
             )
             user.is_verified = False
+            SiteContactSettings.get_solo().apply_starting_points_to_user(user)
             user.save()
             UserRequests.objects.create(user=user)
 

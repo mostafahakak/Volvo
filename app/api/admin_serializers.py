@@ -77,23 +77,25 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         last_name = (validated_data.pop("last_name", None) or "") or ""
 
         if is_superuser:
-            return User.objects.create_superuser(
+            user = User.objects.create_superuser(
                 mobile=mobile,
                 email=email,
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
             )
-        user = User.objects.create_user(
-            mobile=mobile,
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-        )
-        if is_staff:
-            user.is_staff = True
-            user.save(update_fields=["is_staff"])
+        else:
+            user = User.objects.create_user(
+                mobile=mobile,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            if is_staff:
+                user.is_staff = True
+        SiteContactSettings.get_solo().apply_starting_points_to_user(user)
+        user.save()
         return user
 
 
@@ -172,6 +174,9 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
             "tech_hotline_e164",
             "winch_primary",
             "winch_secondary",
+            "app_theme_default",
+            "user_can_change_theme",
+            "new_user_default_points",
         )
 
 
