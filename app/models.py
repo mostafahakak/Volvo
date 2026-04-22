@@ -22,6 +22,38 @@ class Timing(TimestampedModel):
         return self.branch.name + "--" + str(self.time)
 
 
+class ServiceCategory(TimestampedModel):
+    """Top-level grouping shown in the app's Book-a-Service screen.
+
+    The 7 original rows of Services were conceptually categories — now they are
+    a real model that admins can create / rename / delete independently.
+    """
+
+    name = models.CharField(max_length=255)
+    icon = models.ImageField(upload_to="service_categories", null=True, blank=True)
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name_plural = "Service categories"
+        ordering = ("sort_order", "id")
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceItem(TimestampedModel):
+    """A reusable item / line entry that can be linked to many services."""
+
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+
 class Services(TimestampedModel):
     price = models.IntegerField(null=True, blank=True)
     min_price = models.IntegerField(null=True, blank=True)
@@ -39,9 +71,27 @@ class Services(TimestampedModel):
     )
     line_items_ar = models.TextField(blank=True, null=True)
     price_note_ar = models.TextField(blank=True, null=True)
+    category = models.ForeignKey(
+        ServiceCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="services",
+    )
+    description = models.TextField(blank=True, null=True)
+    compatible_with = models.ManyToManyField(
+        CarModels,
+        blank=True,
+        related_name="services",
+    )
+    items = models.ManyToManyField(
+        ServiceItem,
+        blank=True,
+        related_name="services",
+    )
 
     def __str__(self):
-        return self.name
+        return self.name or f"Service #{self.pk}"
 
 
 class Booking(TimestampedModel):

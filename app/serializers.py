@@ -1,15 +1,41 @@
 from rest_framework import serializers
 
-from app.models import MaintenanceSchedule, MyHistory, Branches, BranchSlot, Services, Accessories, UsedCar, \
-    UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, Timing, Booking, TechnicalAssistant, \
-    RoadAssistantRequest, SiteContactSettings
+from app.models import MaintenanceSchedule, MyHistory, Branches, BranchSlot, Services, ServiceCategory, \
+    ServiceItem, Accessories, UsedCar, UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, \
+    Timing, Booking, TechnicalAssistant, RoadAssistantRequest, SiteContactSettings
 from user.models import CarModels, UserCars
 
 
+class ServiceCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceCategory
+        fields = ("id", "name", "icon", "sort_order")
+
+
+class ServiceItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceItem
+        fields = ("id", "name", "description")
+
+
 class ServicesSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    branch_name = serializers.CharField(source="only_at_branch.name", read_only=True, allow_null=True)
+    compatible_with_models = serializers.SerializerMethodField()
+    items_detail = serializers.SerializerMethodField()
+
     class Meta:
         model = Services
         fields = "__all__"
+
+    def get_compatible_with_models(self, obj):
+        return [{"id": c.id, "car_model": c.car_model} for c in obj.compatible_with.all()]
+
+    def get_items_detail(self, obj):
+        return [
+            {"id": i.id, "name": i.name, "description": i.description}
+            for i in obj.items.all()
+        ]
 
 
 class BookingHistorySerializer(serializers.ModelSerializer):

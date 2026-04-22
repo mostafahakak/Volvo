@@ -14,14 +14,26 @@ from app.api.admin_serializers import (
     AdminBookingSerializer,
     AdminBookingUpdateSerializer,
     AdminLoyaltySerializer,
+    AdminServiceCategorySerializer,
+    AdminServiceItemSerializer,
+    AdminServiceSerializer,
     AdminSiteContactSerializer,
     AdminUserCarListSerializer,
     AdminUserCreateSerializer,
     AdminUserSerializer,
     AdminUserUpdateSerializer,
 )
-from app.models import Accessories, Booking, MaintenanceSchedule, Services, SiteContactSettings, Timing
-from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, ServicesSerializer, BranchesSerializer
+from app.models import (
+    Accessories,
+    Booking,
+    MaintenanceSchedule,
+    ServiceCategory,
+    ServiceItem,
+    Services,
+    SiteContactSettings,
+    Timing,
+)
+from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer
 from user.api.serializer import UserSerializer
 from user.models import Branches, CarModels, LoyaltyPoints, User, UserCars
 
@@ -412,10 +424,81 @@ class AdminCarModelDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+class AdminServiceCategoryListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = ServiceCategory.objects.all().order_by("sort_order", "id")
+    serializer_class = AdminServiceCategorySerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_201_CREATED)
+
+
+class AdminServiceCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = ServiceCategory.objects.all()
+    serializer_class = AdminServiceCategorySerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(response_message.success({"deleted": True}, "success"), status=status.HTTP_200_OK)
+
+
+class AdminServiceItemListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = ServiceItem.objects.all().order_by("name")
+    serializer_class = AdminServiceItemSerializer
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_201_CREATED)
+
+
+class AdminServiceItemDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = ServiceItem.objects.all()
+    serializer_class = AdminServiceItemSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(response_message.success({"deleted": True}, "success"), status=status.HTTP_200_OK)
+
+
 class AdminServicesListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
-    queryset = Services.objects.all().order_by("name")
-    serializer_class = ServicesSerializer
+    queryset = (
+        Services.objects.all()
+        .select_related("category", "only_at_branch")
+        .prefetch_related("items", "compatible_with")
+        .order_by("category__sort_order", "name")
+    )
+    serializer_class = AdminServiceSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def list(self, request, *args, **kwargs):
@@ -435,8 +518,12 @@ class AdminServicesListCreateView(generics.ListCreateAPIView):
 
 class AdminServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
-    queryset = Services.objects.all()
-    serializer_class = ServicesSerializer
+    queryset = (
+        Services.objects.all()
+        .select_related("category", "only_at_branch")
+        .prefetch_related("items", "compatible_with")
+    )
+    serializer_class = AdminServiceSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def retrieve(self, request, *args, **kwargs):

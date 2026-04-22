@@ -1,7 +1,15 @@
 from rest_framework import serializers
 
-from app.models import Accessories, Booking, MaintenanceSchedule, Services, SiteContactSettings
-from user.models import CarModels, LoyaltyPoints, User, UserCars
+from app.models import (
+    Accessories,
+    Booking,
+    MaintenanceSchedule,
+    ServiceCategory,
+    ServiceItem,
+    Services,
+    SiteContactSettings,
+)
+from user.models import Branches, CarModels, LoyaltyPoints, User, UserCars
 
 
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -141,6 +149,60 @@ class AdminBookingUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = ("workflow_status", "status")
+
+
+class AdminServiceCategorySerializer(serializers.ModelSerializer):
+    service_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ServiceCategory
+        fields = ("id", "name", "icon", "sort_order", "service_count")
+
+    def get_service_count(self, obj):
+        return obj.services.count()
+
+
+class AdminServiceItemSerializer(serializers.ModelSerializer):
+    service_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ServiceItem
+        fields = ("id", "name", "description", "service_count")
+
+    def get_service_count(self, obj):
+        return obj.services.count()
+
+
+class AdminServiceSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=ServiceCategory.objects.all(), required=False, allow_null=True
+    )
+    category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    branch_name = serializers.CharField(source="only_at_branch.name", read_only=True, allow_null=True)
+    only_at_branch = serializers.PrimaryKeyRelatedField(
+        queryset=Branches.objects.all(), required=False, allow_null=True
+    )
+    items = serializers.PrimaryKeyRelatedField(
+        queryset=ServiceItem.objects.all(), many=True, required=False
+    )
+    compatible_with = serializers.PrimaryKeyRelatedField(
+        queryset=CarModels.objects.all(), many=True, required=False
+    )
+
+    class Meta:
+        model = Services
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["compatible_with_models"] = [
+            {"id": c.id, "car_model": c.car_model} for c in instance.compatible_with.all()
+        ]
+        data["items_detail"] = [
+            {"id": i.id, "name": i.name, "description": i.description}
+            for i in instance.items.all()
+        ]
+        return data
 
 
 class AdminAccessorySerializer(serializers.ModelSerializer):

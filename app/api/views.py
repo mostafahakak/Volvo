@@ -6,9 +6,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 import app.messages as response_message
-from app.models import MyHistory, MaintenanceSchedule, Branches, BranchSlot, Services, Accessories, UsedCarsImage, \
-    UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings
+from app.models import MyHistory, MaintenanceSchedule, Branches, BranchSlot, Services, ServiceCategory, ServiceItem, \
+    Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings
 from app.serializers import *
+from app.serializers import ServiceCategorySerializer, ServiceItemSerializer
 from user.models import CarModels, UserCars
 
 
@@ -103,8 +104,40 @@ class ListServices(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        service = Services.objects.all()
-        serializer = ServicesSerializer(service, many=True)
+        qs = (
+            Services.objects.all()
+            .select_related("category", "only_at_branch")
+            .prefetch_related("items", "compatible_with")
+        )
+        cat = request.query_params.get("category_id")
+        if cat:
+            qs = qs.filter(category_id=cat)
+        car_model_id = request.query_params.get("car_model_id")
+        if car_model_id:
+            # Include services with no compatibility set (universal) + those matching the car.
+            qs = qs.filter(Q(compatible_with__isnull=True) | Q(compatible_with__id=car_model_id)).distinct()
+        serializer = ServicesSerializer(qs, many=True)
+        return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
+
+
+class ListServiceCategories(generics.ListAPIView):
+    permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        qs = ServiceCategory.objects.all().order_by("sort_order", "id")
+        serializer = ServiceCategorySerializer(qs, many=True)
+        return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
+
+
+class ListServiceItems(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        qs = ServiceItem.objects.all().order_by("name")
+        service_id = request.query_params.get("service_id")
+        if service_id:
+            qs = qs.filter(services__id=service_id).distinct()
+        serializer = ServiceItemSerializer(qs, many=True)
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
