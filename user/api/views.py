@@ -18,6 +18,29 @@ class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
 
 
+class CheckMobileRegisteredView(APIView):
+    """
+    Public: whether an E.164 mobile is already registered (before Firebase OTP on sign-up).
+    Query: ?mobile=%2B2010...
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        raw = request.query_params.get("mobile") or request.query_params.get("phone") or ""
+        mobile = _normalize_phone_e164(raw)
+        if not mobile or len(mobile) < 8:
+            return Response(
+                response_message.error("error", "mobile query parameter is required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        exists = User.objects.filter(mobile=mobile).exists()
+        return Response(
+            response_message.success({"exists": exists}, success_key="success"),
+            status=status.HTTP_200_OK,
+        )
+
+
 def _normalize_phone(s):
     if not s:
         return ""

@@ -3,6 +3,7 @@ from .views import *
 
 urlpatterns = [
     path('signup', SignUp.as_view(), name='signup'),
+    path('check_mobile', CheckMobileRegisteredView.as_view(), name='check_mobile'),
     path('firebase_login', FirebasePhoneAuthView.as_view(), name='firebase_login'),
     path('login', LoginView.as_view(), name='login'),
     path('add_user_car', AddUserCar.as_view(), name='add_user_car'),

@@ -116,6 +116,7 @@ class Booking(TimestampedModel):
     status = models.BooleanField(default=False)
     # 0, 1, or 2 — three concurrent bookings per hour slot (12:00–18:00 flow).
     slot_index = models.PositiveSmallIntegerField(default=0)
+    customer_note = models.TextField(blank=True, default="")
     workflow_status = models.CharField(
         max_length=32,
         choices=WORKFLOW_CHOICES,

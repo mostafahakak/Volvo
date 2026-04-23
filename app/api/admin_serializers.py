@@ -147,6 +147,7 @@ class AdminBookingSerializer(serializers.ModelSerializer):
             "date",
             "status",
             "slot_index",
+            "customer_note",
             "workflow_status",
             "services",
             "car_model",

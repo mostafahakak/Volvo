@@ -1,6 +1,6 @@
 import datetime
 
-from django.db.models import Q
+from django.db.models import Q, Count
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -145,7 +145,12 @@ class ListAccessories(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def list(self, request, *args, **kwargs):
-        accessory = Accessories.objects.filter(discount=0)
+        # Full-price accessories (discount=0). Discounted items use list_offers.
+        accessory = (
+            Accessories.objects.filter(discount=0)
+            .order_by("id")
+            .prefetch_related("compatible_with")
+        )
         serializer = AccessoriesSerializer(accessory, many=True)
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
@@ -352,12 +357,18 @@ class BookAService(generics.CreateAPIView):
                 {"error": "This time slot is already reserved"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        customer_note = (request.data.get("customer_note") or request.data.get("note") or "")
+        if isinstance(customer_note, str):
+            customer_note = customer_note.strip()[:5000]
+        else:
+            customer_note = ""
         booking = Booking.objects.create(
             user_car=user_car,
             branch=branch,
             time=time,
             date=date,
             slot_index=slot_index,
+            customer_note=customer_note,
             workflow_status=Booking.WORKFLOW_PENDING,
         )
         for service in services:

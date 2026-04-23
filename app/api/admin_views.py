@@ -309,6 +309,7 @@ class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
 
     def perform_update(self, serializer):
         instance = serializer.instance
+        before_status = instance.workflow_status
         before = (
             instance.branch_id,
             instance.time_id,
@@ -316,34 +317,55 @@ class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
             int(instance.slot_index or 0),
         )
         booking = serializer.save()
+        after_status = booking.workflow_status
         after = (
             booking.branch_id,
             booking.time_id,
             (booking.date or "").strip(),
             int(booking.slot_index or 0),
         )
-        if before != after and booking.user_car_id:
-            user = getattr(booking.user_car, "user", None)
-            if user:
-                branch_name = booking.branch.name if booking.branch else ""
-                time_str = ""
-                if booking.time and booking.time.time:
-                    time_str = booking.time.time.strftime("%H:%M")
-                date_str = booking.date or ""
-                body = f"Your service visit is now {date_str}"
-                if time_str:
-                    body += f" at {time_str}"
-                if branch_name:
-                    body += f" — {branch_name}"
-                send_fcm_to_user(
-                    user,
-                    title="Service appointment updated",
-                    body=body,
-                    data={
-                        "type": "booking_moved",
-                        "booking_id": str(booking.pk),
-                    },
-                )
+        user = getattr(booking.user_car, "user", None) if booking.user_car_id else None
+        if not user:
+            return
+        if before != after:
+            branch_name = booking.branch.name if booking.branch else ""
+            time_str = ""
+            if booking.time and booking.time.time:
+                time_str = booking.time.time.strftime("%H:%M")
+            date_str = booking.date or ""
+            body = f"Your service visit is now {date_str}"
+            if time_str:
+                body += f" at {time_str}"
+            if branch_name:
+                body += f" — {branch_name}"
+            send_fcm_to_user(
+                user,
+                title="Service appointment updated",
+                body=body,
+                data={
+                    "type": "booking_moved",
+                    "booking_id": str(booking.pk),
+                },
+            )
+        if before_status != after_status:
+            labels = {
+                Booking.WORKFLOW_PENDING: "Pending confirmation",
+                Booking.WORKFLOW_CONFIRMED: "Confirmed",
+                Booking.WORKFLOW_IN_PROGRESS: "In progress",
+                Booking.WORKFLOW_COMPLETED: "Completed",
+                Booking.WORKFLOW_CANCELLED: "Cancelled",
+            }
+            label = labels.get(after_status, after_status)
+            send_fcm_to_user(
+                user,
+                title="Service booking update",
+                body=f"Your booking status is now: {label}",
+                data={
+                    "type": "booking_status",
+                    "booking_id": str(booking.pk),
+                    "status": str(after_status),
+                },
+            )
 
     def retrieve(self, request, *args, **kwargs):
         resp = super().retrieve(request, *args, **kwargs)

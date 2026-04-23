@@ -54,6 +54,7 @@ class BookingHistorySerializer(serializers.ModelSerializer):
             "branch_name",
             "workflow_status",
             "slot_index",
+            "customer_note",
             "services",
             "car_model",
             "car_plate",
@@ -68,6 +69,16 @@ class CarModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarModels
         fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request and getattr(instance, "image", None) and instance.image:
+            try:
+                data["image"] = request.build_absolute_uri(instance.image.url)
+            except Exception:
+                pass
+        return data
 
 
 class MaintenanceScheduleSerializer(serializers.ModelSerializer):

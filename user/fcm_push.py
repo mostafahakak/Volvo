@@ -23,12 +23,13 @@ def send_fcm_to_user(
     try:
         from firebase_admin import messaging
 
-        msg = messaging.Message(
-            notification=messaging.Notification(title=title, body=body),
-            token=token,
-        )
+        payload: dict = {
+            "notification": messaging.Notification(title=title, body=body),
+            "token": token,
+        }
         if data:
-            msg.data = {k: str(v) for k, v in data.items() if v is not None}
+            payload["data"] = {k: str(v) for k, v in data.items() if v is not None}
+        msg = messaging.Message(**payload)
         messaging.send(msg)
         return True
     except Exception as e:
