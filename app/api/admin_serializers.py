@@ -40,6 +40,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class AdminUserUpdateSerializer(serializers.ModelSerializer):
+    next_service_date = serializers.DateField(required=False, allow_null=True)
+
     class Meta:
         model = User
         fields = (
@@ -56,6 +58,8 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
 
 class AdminUserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    next_service_km = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    next_service_date = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -67,6 +71,8 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
             "password",
             "is_staff",
             "is_superuser",
+            "next_service_km",
+            "next_service_date",
         )
 
     def validate_mobile(self, value):
@@ -79,10 +85,18 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password")
         is_superuser = validated_data.pop("is_superuser", False)
         is_staff = validated_data.pop("is_staff", False)
+        next_service_km = validated_data.pop("next_service_km", None)
+        next_service_date = validated_data.pop("next_service_date", None)
         mobile = validated_data.pop("mobile")
         email = (validated_data.pop("email", None) or "").strip() or None
         first_name = (validated_data.pop("first_name", None) or "") or ""
         last_name = (validated_data.pop("last_name", None) or "") or ""
+
+        extra = {}
+        if next_service_km is not None:
+            extra["next_service_km"] = next_service_km
+        if next_service_date is not None:
+            extra["next_service_date"] = next_service_date
 
         if is_superuser:
             user = User.objects.create_superuser(
@@ -91,6 +105,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
+                **extra,
             )
         else:
             user = User.objects.create_user(
@@ -99,6 +114,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
+                **extra,
             )
             if is_staff:
                 user.is_staff = True
@@ -111,6 +127,8 @@ class AdminBookingSerializer(serializers.ModelSerializer):
     user_mobile = serializers.CharField(source="user_car.user.mobile", read_only=True)
     user_name = serializers.SerializerMethodField()
     branch_name = serializers.CharField(source="branch.name", read_only=True)
+    branch_id = serializers.IntegerField(source="branch.id", read_only=True, allow_null=True)
+    time_id = serializers.IntegerField(source="time.id", read_only=True, allow_null=True)
     time_display = serializers.TimeField(source="time.time", format="%H:%M", read_only=True)
     services = serializers.SerializerMethodField()
     car_model = serializers.CharField(source="user_car.car_model.car_model", read_only=True)
@@ -123,6 +141,8 @@ class AdminBookingSerializer(serializers.ModelSerializer):
             "user_mobile",
             "user_name",
             "branch_name",
+            "branch_id",
+            "time_id",
             "time_display",
             "date",
             "status",
@@ -148,7 +168,25 @@ class AdminBookingSerializer(serializers.ModelSerializer):
 class AdminBookingUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
-        fields = ("workflow_status", "status")
+        fields = ("workflow_status", "status", "branch", "time", "date", "slot_index")
+        extra_kwargs = {
+            "branch": {"required": False, "allow_null": True},
+            "time": {"required": False, "allow_null": True},
+            "date": {"required": False, "allow_null": True},
+            "slot_index": {"required": False},
+        }
+
+    def validate(self, attrs):
+        instance = self.instance
+        if not instance:
+            return attrs
+        branch = attrs.get("branch", instance.branch)
+        time = attrs.get("time", instance.time)
+        if branch and time and getattr(time, "branch_id", None) and time.branch_id != branch.id:
+            raise serializers.ValidationError(
+                {"time": "The selected time slot does not belong to the selected branch."}
+            )
+        return attrs
 
 
 class AdminServiceCategorySerializer(serializers.ModelSerializer):

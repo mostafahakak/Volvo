@@ -143,6 +143,38 @@ class Profile(generics.ListAPIView):
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
+class UpdateNotificationTokenView(APIView):
+    """
+    Store the device FCM token for the current user. Call on app start / resume
+    so booking notifications reach the right device.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        token = (
+            (request.data.get("fcm_token") or request.data.get("notification_token") or "")
+            .strip()
+        )
+        if not token:
+            return Response(
+                response_message.error("error", "fcm_token or notification_token is required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(token) > 10000:
+            return Response(
+                response_message.error("error", "FCM token exceeds max length"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = request.user
+        user.notification_token = token
+        user.save(update_fields=["notification_token"])
+        return Response(
+            response_message.success({"updated": True}, success_key="success"),
+            status=status.HTTP_200_OK,
+        )
+
+
 class UpdateProfile(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 

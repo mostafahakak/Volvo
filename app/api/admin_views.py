@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 import app.messages as response_message
+from user.fcm_push import send_fcm_to_user
 from app.api.admin_serializers import (
     AdminAccessorySerializer,
     AdminBookingSerializer,
@@ -306,6 +307,44 @@ class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
             return AdminBookingUpdateSerializer
         return AdminBookingSerializer
 
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        before = (
+            instance.branch_id,
+            instance.time_id,
+            (instance.date or "").strip(),
+            int(instance.slot_index or 0),
+        )
+        booking = serializer.save()
+        after = (
+            booking.branch_id,
+            booking.time_id,
+            (booking.date or "").strip(),
+            int(booking.slot_index or 0),
+        )
+        if before != after and booking.user_car_id:
+            user = getattr(booking.user_car, "user", None)
+            if user:
+                branch_name = booking.branch.name if booking.branch else ""
+                time_str = ""
+                if booking.time and booking.time.time:
+                    time_str = booking.time.time.strftime("%H:%M")
+                date_str = booking.date or ""
+                body = f"Your service visit is now {date_str}"
+                if time_str:
+                    body += f" at {time_str}"
+                if branch_name:
+                    body += f" — {branch_name}"
+                send_fcm_to_user(
+                    user,
+                    title="Service appointment updated",
+                    body=body,
+                    data={
+                        "type": "booking_moved",
+                        "booking_id": str(booking.pk),
+                    },
+                )
+
     def retrieve(self, request, *args, **kwargs):
         resp = super().retrieve(request, *args, **kwargs)
         return Response(
@@ -317,7 +356,7 @@ class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
         resp = super().update(request, *args, **kwargs)
         booking = (
             Booking.objects.filter(pk=self.kwargs["pk"])
-            .select_related("branch", "time", "user_car", "user_car__user", "user_car__car_model")
+            .select_related("branch", "time", "user_car", "user_car__car_model")
             .prefetch_related("service")
             .first()
         )

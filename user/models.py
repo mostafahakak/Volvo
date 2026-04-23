@@ -112,7 +112,11 @@ class User(AbstractUser):
     notification_token = models.CharField(max_length=10000, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     next_service_km = models.IntegerField(default=0)
-    next_service_date = models.DateField(default=timezone.localdate)
+    next_service_date = models.DateField(
+        default=timezone.localdate,
+        blank=True,
+        null=True,
+    )
     USERNAME_FIELD = "mobile"
     REQUIRED_FIELDS = []
     objects = UserManager()
