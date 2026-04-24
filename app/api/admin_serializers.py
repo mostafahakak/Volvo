@@ -206,7 +206,7 @@ class AdminServiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceItem
-        fields = ("id", "name", "description", "service_count")
+        fields = ("id", "name", "description", "price", "service_count")
 
     def get_service_count(self, obj):
         return obj.services.count()
@@ -238,7 +238,7 @@ class AdminServiceSerializer(serializers.ModelSerializer):
             {"id": c.id, "car_model": c.car_model} for c in instance.compatible_with.all()
         ]
         data["items_detail"] = [
-            {"id": i.id, "name": i.name, "description": i.description}
+            {"id": i.id, "name": i.name, "description": i.description, "price": i.price}
             for i in instance.items.all()
         ]
         return data

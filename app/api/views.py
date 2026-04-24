@@ -140,9 +140,8 @@ class ListAccessories(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def list(self, request, *args, **kwargs):
-        # Full-price accessories (discount=0). Discounted items use list_offers.
         accessory = (
-            Accessories.objects.filter(discount=0)
+            Accessories.objects.filter(kind=Accessories.KIND_ACCESSORY)
             .order_by("id")
             .prefetch_related("compatible_with")
         )
@@ -191,11 +190,17 @@ class ListOffers(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        accessory = Accessories.objects.filter(~Q(discount=0))
+        accessory = (
+            Accessories.objects.filter(kind=Accessories.KIND_SPECIAL_OFFER)
+            .order_by("id")
+            .prefetch_related("compatible_with")
+        )
         serializer = AccessoriesSerializer(accessory, many=True)
         data = []
         for access in serializer.data:
-            access['price_after'] = access.get("price") - (access.get("price") * (access.get("discount") / 100))
+            price = access.get("price") or 0
+            disc = access.get("discount") or 0
+            access["price_after"] = price - (price * (disc / 100.0)) if disc else price
             data.append(access)
         return Response(response_message.success(data, success_key="success"), status=status.HTTP_200_OK)
 
@@ -299,7 +304,7 @@ class BookAService(generics.CreateAPIView):
                 {"error": "Duplicate service ids are not allowed"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        services = Services.objects.filter(id__in=service_ids)
+        services = Services.objects.filter(id__in=service_ids).prefetch_related("items")
         if services.count() != len(set(service_ids)):
             return Response(
                 {"error": "Invalid service id"},
@@ -357,6 +362,93 @@ class BookAService(generics.CreateAPIView):
             customer_note = customer_note.strip()[:5000]
         else:
             customer_note = ""
+
+        raw_selections = request.data.get("service_item_selections")
+        if raw_selections is None:
+            raw_selections = []
+        if not isinstance(raw_selections, list):
+            return Response(
+                {"error": "service_item_selections must be a list"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        selection_by_service = {}
+        for entry in raw_selections:
+            if not isinstance(entry, dict):
+                return Response(
+                    {"error": "Each service_item_selections entry must be an object"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                sid = int(entry.get("service_id"))
+            except (TypeError, ValueError):
+                return Response(
+                    {"error": "service_id in service_item_selections must be an integer"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            item_ids = entry.get("item_ids")
+            if item_ids is None:
+                item_ids = []
+            if not isinstance(item_ids, list):
+                return Response(
+                    {"error": "item_ids must be a list"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                parsed_ids = [int(x) for x in item_ids]
+            except (TypeError, ValueError):
+                return Response(
+                    {"error": "item_ids must be a list of integers"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if len(parsed_ids) != len(set(parsed_ids)):
+                return Response(
+                    {"error": "Duplicate item_ids are not allowed for a service"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if sid in selection_by_service:
+                return Response(
+                    {"error": "Duplicate service_id in service_item_selections"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            selection_by_service[sid] = parsed_ids
+        booked_service_ids = set(services.values_list("id", flat=True))
+        extra_sids = set(selection_by_service.keys()) - booked_service_ids
+        if extra_sids:
+            return Response(
+                {
+                    "error": "service_item_selections includes a service_id that is not in this booking",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        normalized_selections = []
+        for svc in services:
+            linked_ids = set(svc.items.values_list("id", flat=True))
+            chosen = selection_by_service.get(svc.id, [])
+            if not linked_ids:
+                if chosen:
+                    return Response(
+                        {
+                            "error": f'Service "{svc.name}" has no line items; remove it from service_item_selections',
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                continue
+            if not chosen:
+                return Response(
+                    {
+                        "error": f'Choose at least one line item for service "{svc.name}"',
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            invalid = [i for i in chosen if i not in linked_ids]
+            if invalid:
+                return Response(
+                    {
+                        "error": f"Invalid line item id(s) {invalid} for service \"{svc.name}\"",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            normalized_selections.append({"service_id": svc.id, "item_ids": chosen})
         booking = Booking.objects.create(
             user_car=user_car,
             branch=branch,
@@ -364,6 +456,7 @@ class BookAService(generics.CreateAPIView):
             date=date,
             slot_index=slot_index,
             customer_note=customer_note,
+            service_item_selections=normalized_selections,
             workflow_status=Booking.WORKFLOW_PENDING,
         )
         for service in services:

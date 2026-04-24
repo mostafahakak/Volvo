@@ -46,6 +46,8 @@ class ServiceItem(TimestampedModel):
 
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    # Optional EGP estimate shown in the app when booking; final invoice may differ.
+    price = models.IntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ("name",)
@@ -117,6 +119,8 @@ class Booking(TimestampedModel):
     # 0, 1, or 2 — three concurrent bookings per hour slot (12:00–18:00 flow).
     slot_index = models.PositiveSmallIntegerField(default=0)
     customer_note = models.TextField(blank=True, default="")
+    # [{"service_id": 1, "item_ids": [2, 3]}] — line items chosen per service at booking time.
+    service_item_selections = models.JSONField(default=list, blank=True)
     workflow_status = models.CharField(
         max_length=32,
         choices=WORKFLOW_CHOICES,
@@ -131,11 +135,25 @@ class Booking(TimestampedModel):
 
 
 class Accessories(TimestampedModel):
+    KIND_ACCESSORY = "accessory"
+    KIND_SPECIAL_OFFER = "special_offer"
+    KIND_CHOICES = (
+        (KIND_ACCESSORY, "Accessory"),
+        (KIND_SPECIAL_OFFER, "Special offer"),
+    )
+
     title = models.CharField(max_length=255, null=True, blank=True)
     about = models.TextField(blank=True, null=True)
     compatible_with = models.ManyToManyField(CarModels, related_name="accessories")
     price = models.IntegerField(null=True, blank=True)
     discount = models.IntegerField(default=0)
+    # Catalog: accessories and special offers are separate rows; not inferred from discount alone.
+    kind = models.CharField(
+        max_length=20,
+        choices=KIND_CHOICES,
+        default=KIND_ACCESSORY,
+        db_index=True,
+    )
 
     def __str__(self):
         return self.title

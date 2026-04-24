@@ -15,7 +15,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 class ServiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceItem
-        fields = ("id", "name", "description")
+        fields = ("id", "name", "description", "price")
 
 
 class ServicesSerializer(serializers.ModelSerializer):
@@ -33,7 +33,12 @@ class ServicesSerializer(serializers.ModelSerializer):
 
     def get_items_detail(self, obj):
         return [
-            {"id": i.id, "name": i.name, "description": i.description}
+            {
+                "id": i.id,
+                "name": i.name,
+                "description": i.description,
+                "price": i.price,
+            }
             for i in obj.items.all()
         ]
 
@@ -55,6 +60,7 @@ class BookingHistorySerializer(serializers.ModelSerializer):
             "workflow_status",
             "slot_index",
             "customer_note",
+            "service_item_selections",
             "services",
             "car_model",
             "car_plate",
