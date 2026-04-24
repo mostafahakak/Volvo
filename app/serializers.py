@@ -101,6 +101,7 @@ class UserCarsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserCars
         fields = "__all__"
+        read_only_fields = ("is_verified",)
 
 
 class BranchesSerializer(serializers.ModelSerializer):

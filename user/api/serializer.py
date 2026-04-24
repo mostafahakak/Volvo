@@ -153,6 +153,7 @@ class UserCarsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserCars
         fields = "__all__"
+        read_only_fields = ("is_verified",)
 
     def validate(self, attrs):
         chassis = (attrs.get("chassis_number") or "").strip()

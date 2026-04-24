@@ -294,4 +294,5 @@ class AdminUserCarListSerializer(serializers.ModelSerializer):
             "model_year",
             "plate_number",
             "chassis_number",
+            "is_verified",
         )

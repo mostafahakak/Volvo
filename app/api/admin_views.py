@@ -269,6 +269,32 @@ class AdminUserCarsListView(generics.ListAPIView):
         )
 
 
+class AdminUserCarDetailView(generics.RetrieveUpdateAPIView):
+    """PATCH `is_verified` (and other fields if needed) for a customer vehicle."""
+
+    permission_classes = [IsAdminUser]
+    queryset = UserCars.objects.all().select_related("car_model", "user")
+    serializer_class = AdminUserCarListSerializer
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().get_serializer(*args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+
 class AdminBookingListView(generics.ListAPIView):
     permission_classes = [IsAdminUser]
     serializer_class = AdminBookingSerializer
@@ -278,12 +304,23 @@ class AdminBookingListView(generics.ListAPIView):
             Booking.objects.all()
             .select_related("branch", "time", "user_car", "user_car__user", "user_car__car_model")
             .prefetch_related("service")
-            .order_by("-created_at")
         )
         wf = self.request.query_params.get("workflow_status")
         if wf:
             qs = qs.filter(workflow_status=wf)
-        return qs
+        user_id = self.request.query_params.get("user_id")
+        if user_id:
+            qs = qs.filter(user_car__user_id=user_id)
+        date_from = (self.request.query_params.get("date_from") or "").strip()
+        date_to = (self.request.query_params.get("date_to") or "").strip()
+        if date_from:
+            qs = qs.filter(date__gte=date_from)
+        if date_to:
+            qs = qs.filter(date__lte=date_to)
+        phone = (self.request.query_params.get("phone") or "").strip()
+        if phone:
+            qs = qs.filter(user_car__user__mobile__icontains=phone)
+        return qs.order_by("-date", "-created_at", "-id")
 
     def list(self, request, *args, **kwargs):
         resp = super().list(request, *args, **kwargs)
@@ -428,12 +465,39 @@ class AdminLoyaltyDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
-class AdminBranchesListView(APIView):
+class AdminBranchesListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
+    queryset = Branches.objects.all().order_by("name")
+    serializer_class = BranchesSerializer
 
-    def get(self, request, *args, **kwargs):
-        data = BranchesSerializer(Branches.objects.all().order_by("name"), many=True).data
-        return Response(response_message.success(data, "success"), status=status.HTTP_200_OK)
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_201_CREATED)
+
+
+class AdminBranchDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = Branches.objects.all()
+    serializer_class = BranchesSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(
+            response_message.success({"deleted": True}, "success"),
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminCarModelsListCreateView(generics.ListCreateAPIView):

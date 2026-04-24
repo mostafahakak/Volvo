@@ -79,14 +79,9 @@ class ListBranches(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def list(self, request, *args, **kwargs):
-        branch = Branches.objects.all()
-        if request.query_params.get("book_service") == "1":
-            branch = branch.filter(
-                Q(name__icontains="kat")
-                | Q(name__icontains="qat")
-                | Q(name__icontains="october")
-                | Q(name__icontains="oct")
-            ).distinct()
+        # All branches are managed in the admin dashboard; apps use this list for
+        # Book a service, Find us, etc. (book_service=1 only controls client query params.)
+        branch = Branches.objects.all().order_by("name")
         serializer = BranchesSerializer(branch, many=True)
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 

@@ -41,6 +41,8 @@ class Branches(TimestampedModel):
     latitude = models.CharField(max_length=255)
     langitude = models.CharField(max_length=255)
     address = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    maps_url = models.URLField(max_length=1024, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -163,6 +165,8 @@ class UserCars(TimestampedModel):
     car_registration_back_url = models.URLField(max_length=2048, blank=True, null=True)
     driver_license_front_url = models.URLField(max_length=2048, blank=True, null=True)
     driver_license_back_url = models.URLField(max_length=2048, blank=True, null=True)
+    # Set by staff in the admin dashboard. Only verified cars appear in Book a service.
+    is_verified = models.BooleanField(default=False, db_index=True)
 
     def __str__(self):
         return self.user.first_name + "-" + self.user.last_name + "-" + self.car_model.car_model
