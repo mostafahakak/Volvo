@@ -9,6 +9,11 @@ from user.models import User, UserCars, LoyaltyPoints
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """`user_type` is the assigned LoyaltyPoints row id; `loyalty_type` is the tier label (e.g. silver / gold / platinum)."""
+
+    loyalty_type = serializers.CharField(source="user_type.type", read_only=True, allow_null=True)
+    loyalty_id = serializers.IntegerField(source="user_type_id", read_only=True, allow_null=True)
+
     class Meta:
         model = User
         fields = [
@@ -24,11 +29,18 @@ class UserSerializer(serializers.ModelSerializer):
             "is_verified",
             "next_service_km",
             "next_service_date",
+            "user_type",
+            "loyalty_type",
+            "loyalty_id",
         ]
         extra_kwargs = {"password": {"write_only": True}}
+        read_only_fields = ("user_type", "loyalty_type", "loyalty_id")
 
 class UserSerializer2(serializers.ModelSerializer):
     avatar = Base64FileField(required=False)
+    loyalty_type = serializers.CharField(source="user_type.type", read_only=True, allow_null=True)
+    loyalty_id = serializers.IntegerField(source="user_type_id", read_only=True, allow_null=True)
+
     class Meta:
         model = User
         fields = [
@@ -43,7 +55,11 @@ class UserSerializer2(serializers.ModelSerializer):
             "is_verified",
             "next_service_km",
             "next_service_date",
+            "user_type",
+            "loyalty_type",
+            "loyalty_id",
         ]
+        read_only_fields = ("user_type", "loyalty_type", "loyalty_id")
 
 
 
@@ -133,7 +149,7 @@ class LoginSerializer(TokenObtainPairSerializer):
         data = {}
 
         try:
-            user = User.objects.get(mobile=username)
+            user = User.objects.select_related("user_type").get(mobile=username)
             # is_verified = admin approved for booking/maintenance; login is always allowed.
 
             data = super(LoginSerializer, self).validate(attrs)
@@ -174,6 +190,19 @@ class UserCarsSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {"plate_number": "This plate number is already registered."}
                 )
+        request = self.context.get("request")
+        if request and request.user.is_authenticated and self.instance is None:
+            u = request.user
+            if not getattr(u, "is_verified", False):
+                if UserCars.objects.filter(user=u).count() >= 1:
+                    raise serializers.ValidationError(
+                        {
+                            "non_field_errors": [
+                                "You can add one vehicle while your account is pending admin approval. "
+                                "After your account is approved, you can add more vehicles."
+                            ]
+                        }
+                    )
         return attrs
 
 class LoyaltySerializer(serializers.ModelSerializer):

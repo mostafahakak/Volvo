@@ -153,7 +153,7 @@ class Profile(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        user = User.objects.filter(id=request.user.id).first()
+        user = User.objects.select_related("user_type").filter(id=request.user.id).first()
         histories = MyHistory.objects.filter(user=user)
         points = 0
         for history in histories:
@@ -202,7 +202,7 @@ class UpdateProfile(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        user = User.objects.filter(id=request.user.id).first()
+        user = User.objects.select_related("user_type").filter(id=request.user.id).first()
         new_mobile = request.data.get("mobile")
         mobile_check = User.objects.filter(mobile=new_mobile).first()
         if mobile_check and mobile_check.id != request.user.id:
