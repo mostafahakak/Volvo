@@ -283,6 +283,11 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
 
 class AdminUserCarListSerializer(serializers.ModelSerializer):
     car_model_name = serializers.CharField(source="car_model.car_model", read_only=True)
+    car_document_front_url = serializers.SerializerMethodField()
+    car_document_back_url = serializers.SerializerMethodField()
+    has_car_document_front = serializers.SerializerMethodField()
+    has_car_document_back = serializers.SerializerMethodField()
+    can_verify = serializers.SerializerMethodField()
 
     class Meta:
         model = UserCars
@@ -295,4 +300,66 @@ class AdminUserCarListSerializer(serializers.ModelSerializer):
             "plate_number",
             "chassis_number",
             "is_verified",
+            "car_document_front_url",
+            "car_document_back_url",
+            "has_car_document_front",
+            "has_car_document_back",
+            "can_verify",
         )
+
+    @staticmethod
+    def _has_front(obj):
+        if obj.car_document_front and getattr(obj.car_document_front, "name", None):
+            return True
+        return bool((obj.car_registration_front_url or "").strip())
+
+    @staticmethod
+    def _has_back(obj):
+        if obj.car_document_back and getattr(obj.car_document_back, "name", None):
+            return True
+        return bool((obj.car_registration_back_url or "").strip())
+
+    def get_has_car_document_front(self, obj):
+        return self._has_front(obj)
+
+    def get_has_car_document_back(self, obj):
+        return self._has_back(obj)
+
+    def get_can_verify(self, obj):
+        return self._has_front(obj) and self._has_back(obj)
+
+    def get_car_document_front_url(self, obj):
+        if obj.car_document_front and getattr(obj.car_document_front, "name", None):
+            request = self.context.get("request")
+            url = obj.car_document_front.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        u = (obj.car_registration_front_url or "").strip()
+        return u or None
+
+    def get_car_document_back_url(self, obj):
+        if obj.car_document_back and getattr(obj.car_document_back, "name", None):
+            request = self.context.get("request")
+            url = obj.car_document_back.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        u = (obj.car_registration_back_url or "").strip()
+        return u or None
+
+    def validate(self, attrs):
+        want = attrs.get("is_verified")
+        if want is True and self.instance is not None:
+            # Re-load from DB so we validate current files/URLs (partial PATCH only sends is_verified).
+            full = UserCars.objects.get(pk=self.instance.pk)
+            if not (self._has_front(full) and self._has_back(full)):
+                raise serializers.ValidationError(
+                    {
+                        "is_verified": [
+                            "Upload both car license/registration front and back (or set both URL fields) "
+                            "before marking this vehicle as verified."
+                        ],
+                    }
+                )
+        return attrs
