@@ -1,6 +1,7 @@
 import datetime
 
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -9,7 +10,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 import app.messages as response_message
-from user.fcm_push import send_fcm_to_user
+from user.notifications_service import notify_user_record
+from user.models import UserNotification
 from app.api.admin_serializers import (
     AdminAccessorySerializer,
     AdminBookingSerializer,
@@ -270,7 +272,7 @@ class AdminUserCarsListView(generics.ListAPIView):
 
 
 class AdminUserCarDetailView(generics.RetrieveUpdateAPIView):
-    """PATCH `is_verified` (and other fields if needed) for a customer vehicle."""
+    """PATCH `is_verified`, `allow_user_edit`, and other fields as needed for a customer vehicle."""
 
     permission_classes = [IsAdminUser]
     queryset = UserCars.objects.all().select_related("car_model", "user")
@@ -291,6 +293,38 @@ class AdminUserCarDetailView(generics.RetrieveUpdateAPIView):
         resp = super().update(request, *args, **kwargs)
         return Response(
             response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminUserCarNotifyView(APIView):
+    """POST a title/body message to the vehicle owner; stored in-app and sent via FCM if possible."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk, *args, **kwargs):
+        car = get_object_or_404(UserCars.objects.select_related("user"), pk=pk)
+        user = car.user
+        if not user:
+            return Response(
+                response_message.error("error", "Vehicle has no assigned user."),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        title = (request.data.get("title") or "").strip() or "Message from Volvo"
+        body = (request.data.get("body") or request.data.get("message") or "").strip()
+        if not body:
+            return Response(
+                response_message.error("error", "Message text is required."),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        notify_user_record(
+            user,
+            kind=UserNotification.KIND_ADMIN,
+            title=title,
+            body=body,
+        )
+        return Response(
+            response_message.success({"sent": True}, "success"),
             status=status.HTTP_200_OK,
         )
 
@@ -375,12 +409,13 @@ class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
                 body += f" at {time_str}"
             if branch_name:
                 body += f" — {branch_name}"
-            send_fcm_to_user(
+            notify_user_record(
                 user,
+                kind=UserNotification.KIND_BOOKING_MOVED,
                 title="Service appointment updated",
                 body=body,
-                data={
-                    "type": "booking_moved",
+                booking_id=booking.pk,
+                extra_fcm_data={
                     "booking_id": str(booking.pk),
                 },
             )
@@ -393,12 +428,13 @@ class AdminBookingDetailView(generics.RetrieveUpdateAPIView):
                 Booking.WORKFLOW_CANCELLED: "Cancelled",
             }
             label = labels.get(after_status, after_status)
-            send_fcm_to_user(
+            notify_user_record(
                 user,
+                kind=UserNotification.KIND_BOOKING_STATUS,
                 title="Service booking update",
                 body=f"Your booking status is now: {label}",
-                data={
-                    "type": "booking_status",
+                booking_id=booking.pk,
+                extra_fcm_data={
                     "booking_id": str(booking.pk),
                     "status": str(after_status),
                 },

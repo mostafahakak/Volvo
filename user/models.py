@@ -38,8 +38,8 @@ class Branches(TimestampedModel):
     name = models.CharField(max_length=255, blank=True, null=True)
     mobile1 = models.IntegerField(null=True, blank=True)
     mobile2 = models.IntegerField(null=True, blank=True)
-    latitude = models.CharField(max_length=255)
-    langitude = models.CharField(max_length=255)
+    latitude = models.CharField(max_length=255, blank=True, null=True)
+    langitude = models.CharField(max_length=255, blank=True, null=True)
     address = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     maps_url = models.URLField(max_length=1024, blank=True, null=True)
@@ -143,6 +143,7 @@ class User(AbstractUser):
 class CarModels(TimestampedModel):
     car_model = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(null=True, blank=True, upload_to="Users Cars")
+    image_url = models.URLField(max_length=2048, blank=True, null=True)
     year_from = models.IntegerField(null=True, blank=True)
     year_to = models.IntegerField(null=True, blank=True)
     model_type = models.CharField(max_length=255, blank=True, null=True)
@@ -167,9 +168,50 @@ class UserCars(TimestampedModel):
     driver_license_back_url = models.URLField(max_length=2048, blank=True, null=True)
     # Set by staff in the admin dashboard. Only verified cars appear in Book a service.
     is_verified = models.BooleanField(default=False, db_index=True)
+    # When verified, the customer cannot edit/delete unless staff enables this flag.
+    allow_user_edit = models.BooleanField(default=False, db_index=True)
 
     def __str__(self):
         return self.user.first_name + "-" + self.user.last_name + "-" + self.car_model.car_model
+
+
+class UserNotification(TimestampedModel):
+    """
+    In-app + FCM history for a user (admin messages and automated booking notices).
+    """
+
+    KIND_ADMIN = "admin_message"
+    KIND_BOOKING_MOVED = "booking_moved"
+    KIND_BOOKING_STATUS = "booking_status"
+
+    KIND_CHOICES = (
+        (KIND_ADMIN, "Admin message"),
+        (KIND_BOOKING_MOVED, "Booking rescheduled"),
+        (KIND_BOOKING_STATUS, "Booking status"),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="notification_records",
+    )
+    kind = models.CharField(max_length=32, choices=KIND_CHOICES, db_index=True)
+    title = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    booking = models.ForeignKey(
+        "app.Booking",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="user_notifications",
+    )
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user_id} {self.kind} {self.title[:40]}"
 
 
 class UserRequests(TimestampedModel):

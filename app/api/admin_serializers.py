@@ -1,4 +1,8 @@
+import uuid
+
 from rest_framework import serializers
+
+from volvo.firebase_storage import upload_catalog_file
 
 from app.models import (
     Accessories,
@@ -195,10 +199,45 @@ class AdminServiceCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceCategory
-        fields = ("id", "name", "icon", "sort_order", "service_count")
+        fields = ("id", "name", "icon", "icon_url", "sort_order", "service_count")
+        read_only_fields = ("service_count",)
 
     def get_service_count(self, obj):
         return obj.services.count()
+
+    def create(self, validated_data):
+        icon = validated_data.pop("icon", None)
+        instance = super().create(validated_data)
+        if icon:
+            instance.icon_url = upload_catalog_file(
+                icon, f"catalog/service_categories/{instance.pk}/{uuid.uuid4().hex}"
+            )
+            instance.save(update_fields=["icon_url"])
+        return instance
+
+    def update(self, instance, validated_data):
+        icon = validated_data.pop("icon", None)
+        instance = super().update(instance, validated_data)
+        if icon:
+            instance.icon_url = upload_catalog_file(
+                icon, f"catalog/service_categories/{instance.pk}/{uuid.uuid4().hex}"
+            )
+            instance.save(update_fields=["icon_url"])
+        return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        url = (instance.icon_url or "").strip()
+        if url:
+            data["icon"] = url
+        else:
+            request = self.context.get("request")
+            if request and instance.icon and getattr(instance.icon, "name", None):
+                try:
+                    data["icon"] = request.build_absolute_uri(instance.icon.url)
+                except Exception:
+                    pass
+        return data
 
 
 class AdminServiceItemSerializer(serializers.ModelSerializer):
@@ -241,6 +280,16 @@ class AdminServiceSerializer(serializers.ModelSerializer):
             {"id": i.id, "name": i.name, "description": i.description, "price": i.price}
             for i in instance.items.all()
         ]
+        url = (instance.icons_url or "").strip()
+        if url:
+            data["icons"] = url
+        else:
+            request = self.context.get("request")
+            if request and instance.icons and getattr(instance.icons, "name", None):
+                try:
+                    data["icons"] = request.build_absolute_uri(instance.icons.url)
+                except Exception:
+                    pass
         return data
 
 
@@ -300,6 +349,7 @@ class AdminUserCarListSerializer(serializers.ModelSerializer):
             "plate_number",
             "chassis_number",
             "is_verified",
+            "allow_user_edit",
             "car_document_front_url",
             "car_document_back_url",
             "has_car_document_front",

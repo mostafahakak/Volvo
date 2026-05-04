@@ -7,6 +7,7 @@ urlpatterns = [
     path('firebase_login', FirebasePhoneAuthView.as_view(), name='firebase_login'),
     path('login', LoginView.as_view(), name='login'),
     path('add_user_car', AddUserCar.as_view(), name='add_user_car'),
+    path('user_car/<int:pk>', UserCarDetailView.as_view(), name='user_car_detail'),
     path('profile', Profile.as_view(), name='profile'),
     path('notification_token', UpdateNotificationTokenView.as_view(), name='notification_token'),
     path('update_profile', UpdateProfile.as_view(), name='update_profile'),

@@ -31,6 +31,7 @@ class ServiceCategory(TimestampedModel):
 
     name = models.CharField(max_length=255)
     icon = models.ImageField(upload_to="service_categories", null=True, blank=True)
+    icon_url = models.URLField(max_length=2048, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
 
     class Meta:
@@ -62,6 +63,7 @@ class Services(TimestampedModel):
     max_price = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
     icons = models.ImageField(upload_to="services", null=True, blank=True)
+    icons_url = models.URLField(max_length=2048, blank=True, null=True)
     points = models.IntegerField(null=True, blank=True)
     # If set, this service can only be booked at this branch (e.g. سمكرة و دهان — Katameya only).
     only_at_branch = models.ForeignKey(
@@ -194,6 +196,7 @@ class UsedCarsImage(TimestampedModel):
 
 class MaintenanceSchedule(TimestampedModel):
     description = models.ImageField('images', null=True, blank=True)
+    description_url = models.URLField(max_length=2048, blank=True, null=True)
     car_model = models.ForeignKey(
         CarModels,
         on_delete=models.CASCADE,

@@ -1,6 +1,8 @@
 import datetime
 
 from django.db.models import Q, Count
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -10,7 +12,7 @@ from app.models import MyHistory, MaintenanceSchedule, Branches, BranchSlot, Ser
     Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings
 from app.serializers import *
 from app.serializers import ServiceCategorySerializer, ServiceItemSerializer
-from user.models import CarModels, UserCars
+from user.models import CarModels, UserCars, UserNotification
 
 
 # Create your views here.
@@ -19,7 +21,7 @@ class ListCarModel(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         car_model = CarModels.objects.all()
-        serializer = CarModelSerializer(car_model, many=True)
+        serializer = CarModelSerializer(car_model, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
@@ -31,7 +33,7 @@ class ListMaintenanceSchedule(generics.ListAPIView):
         cm = request.query_params.get("car_model_id")
         if cm:
             qs = qs.filter(car_model_id=cm)
-        serializer = MaintenanceScheduleSerializer(qs, many=True)
+        serializer = MaintenanceScheduleSerializer(qs, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
@@ -75,6 +77,42 @@ class ListUserCars(generics.ListAPIView):
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
+class ListMyNotificationsView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserNotificationSerializer
+
+    def get_queryset(self):
+        return (
+            UserNotification.objects.filter(user=self.request.user)
+            .select_related("booking")
+            .order_by("-created_at")
+        )
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, success_key="success"),
+            status=status.HTTP_200_OK,
+        )
+
+
+class MarkMyNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        note = get_object_or_404(UserNotification, pk=pk, user=request.user)
+        if note.read_at is None:
+            note.read_at = timezone.now()
+            note.save()
+        return Response(
+            response_message.success(
+                UserNotificationSerializer(note).data,
+                success_key="success",
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
 class ListBranches(generics.ListAPIView):
     permission_classes = [AllowAny]
 
@@ -111,7 +149,7 @@ class ListServices(generics.ListAPIView):
         if car_model_id:
             # Include services with no compatibility set (universal) + those matching the car.
             qs = qs.filter(Q(compatible_with__isnull=True) | Q(compatible_with__id=car_model_id)).distinct()
-        serializer = ServicesSerializer(qs, many=True)
+        serializer = ServicesSerializer(qs, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
@@ -120,7 +158,7 @@ class ListServiceCategories(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         qs = ServiceCategory.objects.all().order_by("sort_order", "id")
-        serializer = ServiceCategorySerializer(qs, many=True)
+        serializer = ServiceCategorySerializer(qs, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 

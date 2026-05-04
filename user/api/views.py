@@ -11,7 +11,7 @@ from app.models import MyHistory, SiteContactSettings
 from user.api.serializer import RegisterSerializer, LoginSerializer, UserCarsSerializer, UserSerializer, \
     LoyaltySerializer, UserSerializer2
 from user.firebase_auth import verify_firebase_id_token
-from user.models import User, LoyaltyPoints, UserRequests
+from user.models import User, LoyaltyPoints, UserRequests, UserCars
 
 
 class LoginView(TokenObtainPairView):
@@ -147,6 +147,58 @@ class AddUserCar(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(user=request.user)
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_201_CREATED)
+
+
+def _user_may_modify_vehicle(car: UserCars) -> bool:
+    if not car.is_verified:
+        return True
+    return bool(car.allow_user_edit)
+
+
+class UserCarDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_car(self, request, pk: int) -> UserCars:
+        return get_object_or_404(UserCars, pk=pk, user=request.user)
+
+    def patch(self, request, pk, *args, **kwargs):
+        car = self.get_car(request, pk)
+        if not _user_may_modify_vehicle(car):
+            return Response(
+                response_message.error(
+                    "error",
+                    "This vehicle is verified. Ask the dealer for edit access, or use a vehicle that is not yet verified.",
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = UserCarsSerializer(
+            car,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            response_message.success(serializer.data, success_key="success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, pk, *args, **kwargs):
+        car = self.get_car(request, pk)
+        if not _user_may_modify_vehicle(car):
+            return Response(
+                response_message.error(
+                    "error",
+                    "This vehicle is verified. Ask the dealer for access to remove it.",
+                ),
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        car.delete()
+        return Response(
+            response_message.success({"deleted": True}, success_key="success"),
+            status=status.HTTP_200_OK,
+        )
 
 
 class Profile(generics.ListAPIView):

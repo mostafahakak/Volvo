@@ -218,6 +218,9 @@ try:
     except ValueError:
         _cred = None
         _raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+        _path = os.environ.get("FIREBASE_CREDENTIALS_PATH") or os.environ.get(
+            "GOOGLE_APPLICATION_CREDENTIALS"
+        )
         if _raw:
             _raw = _raw.strip()
             if (_raw.startswith("'") and _raw.endswith("'")) or (
@@ -226,9 +229,6 @@ try:
                 _raw = _raw[1:-1]
             _cred = credentials.Certificate(json.loads(_raw))
         else:
-            _path = os.environ.get("FIREBASE_CREDENTIALS_PATH") or os.environ.get(
-                "GOOGLE_APPLICATION_CREDENTIALS"
-            )
             if _path and Path(_path).exists():
                 _cred = credentials.Certificate(_path)
             else:
@@ -238,6 +238,32 @@ try:
                 if _legacy.exists():
                     _cred = credentials.Certificate(str(_legacy))
         if _cred is not None:
-            firebase_admin.initialize_app(_cred)
+            _project_id = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
+            if not _project_id and _raw:
+                try:
+                    _project_id = (json.loads(_raw.strip().strip("'\"")) or {}).get(
+                        "project_id", ""
+                    ) or ""
+                except Exception:
+                    _project_id = ""
+            if not _project_id:
+                _try_path = None
+                if _path and Path(_path).exists():
+                    _try_path = Path(_path)
+                elif (BASE_DIR / "volvo-c09c7-firebase-adminsdk-cf30h-640174d863.json").exists():
+                    _try_path = BASE_DIR / "volvo-c09c7-firebase-adminsdk-cf30h-640174d863.json"
+                if _try_path:
+                    try:
+                        with open(_try_path, encoding="utf-8") as _jf:
+                            _project_id = (json.load(_jf) or {}).get("project_id", "") or ""
+                    except Exception:
+                        _project_id = ""
+            _bucket = os.environ.get("FIREBASE_STORAGE_BUCKET", "").strip()
+            if not _bucket and _project_id:
+                _bucket = f"{_project_id}.appspot.com"
+            _opts = {}
+            if _bucket:
+                _opts["storageBucket"] = _bucket
+            firebase_admin.initialize_app(_cred, _opts)
 except Exception as e:
     print(f"Firebase initialization skipped: {e}")

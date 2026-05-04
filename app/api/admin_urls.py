@@ -17,6 +17,7 @@ urlpatterns = [
     path("car_models/<int:pk>/", admin_views.AdminCarModelDetailView.as_view(), name="admin_car_model_detail"),
     path("car_models/", admin_views.AdminCarModelsListCreateView.as_view(), name="admin_car_models"),
     path("user_cars/", admin_views.AdminUserCarsListView.as_view(), name="admin_user_cars"),
+    path("user_cars/<int:pk>/notify/", admin_views.AdminUserCarNotifyView.as_view(), name="admin_user_car_notify"),
     path("user_cars/<int:pk>/", admin_views.AdminUserCarDetailView.as_view(), name="admin_user_car_detail"),
     path("service_categories/", admin_views.AdminServiceCategoryListCreateView.as_view(), name="admin_service_categories"),
     path("service_categories/<int:pk>/", admin_views.AdminServiceCategoryDetailView.as_view(), name="admin_service_category_detail"),

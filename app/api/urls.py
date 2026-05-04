@@ -8,6 +8,12 @@ urlpatterns = [
     path("my_history", ListMyHistory.as_view(), name="my_history"),
     path("my_service_bookings", ListMyServiceBookings.as_view(), name="my_service_bookings"),
     path("list_user_cars", ListUserCars.as_view(), name="list_user_cars"),
+    path("my_notifications", ListMyNotificationsView.as_view(), name="my_notifications"),
+    path(
+        "my_notifications/<int:pk>/read",
+        MarkMyNotificationReadView.as_view(),
+        name="my_notification_read",
+    ),
     path("list_branches", ListBranches.as_view(), name="list_branches"),
     path("list_branches_slot", ListBranchSlot.as_view(), name="list_branches_slot"),
     path("list_services", ListServices.as_view(), name="list_services"),
