@@ -260,7 +260,10 @@ try:
                         _project_id = ""
             _bucket = os.environ.get("FIREBASE_STORAGE_BUCKET", "").strip()
             if not _bucket and _project_id:
-                _bucket = f"{_project_id}.appspot.com"
+                # Must match Firebase Console / google-services.json "storage_bucket".
+                # New projects (Oct 2024+): <project_id>.firebasestorage.app
+                # Legacy: <project_id>.appspot.com — set FIREBASE_STORAGE_BUCKET if needed.
+                _bucket = f"{_project_id}.firebasestorage.app"
             _opts = {}
             if _bucket:
                 _opts["storageBucket"] = _bucket

@@ -2,7 +2,7 @@ import uuid
 
 from rest_framework import serializers
 
-from volvo.firebase_storage import upload_catalog_file
+from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 
 from app.models import (
     Accessories,
@@ -209,9 +209,12 @@ class AdminServiceCategorySerializer(serializers.ModelSerializer):
         icon = validated_data.pop("icon", None)
         instance = super().create(validated_data)
         if icon:
-            instance.icon_url = upload_catalog_file(
-                icon, f"catalog/service_categories/{instance.pk}/{uuid.uuid4().hex}"
-            )
+            try:
+                instance.icon_url = upload_catalog_file(
+                    icon, f"catalog/service_categories/{instance.pk}/{uuid.uuid4().hex}"
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"icon": str(e)})
             instance.save(update_fields=["icon_url"])
         return instance
 
@@ -219,9 +222,12 @@ class AdminServiceCategorySerializer(serializers.ModelSerializer):
         icon = validated_data.pop("icon", None)
         instance = super().update(instance, validated_data)
         if icon:
-            instance.icon_url = upload_catalog_file(
-                icon, f"catalog/service_categories/{instance.pk}/{uuid.uuid4().hex}"
-            )
+            try:
+                instance.icon_url = upload_catalog_file(
+                    icon, f"catalog/service_categories/{instance.pk}/{uuid.uuid4().hex}"
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"icon": str(e)})
             instance.save(update_fields=["icon_url"])
         return instance
 

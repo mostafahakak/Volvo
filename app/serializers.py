@@ -2,7 +2,7 @@ import uuid
 
 from rest_framework import serializers
 
-from volvo.firebase_storage import upload_catalog_file
+from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 
 from app.models import MaintenanceSchedule, MyHistory, Branches, BranchSlot, Services, ServiceCategory, \
     ServiceItem, Accessories, UsedCar, UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, \
@@ -112,9 +112,12 @@ class CarModelSerializer(serializers.ModelSerializer):
         image = validated_data.pop("image", None)
         instance = super().create(validated_data)
         if image:
-            instance.image_url = upload_catalog_file(
-                image, f"catalog/car_models/{instance.pk}/{uuid.uuid4().hex}"
-            )
+            try:
+                instance.image_url = upload_catalog_file(
+                    image, f"catalog/car_models/{instance.pk}/{uuid.uuid4().hex}"
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"image": str(e)})
             instance.save(update_fields=["image_url"])
         return instance
 
@@ -122,9 +125,12 @@ class CarModelSerializer(serializers.ModelSerializer):
         image = validated_data.pop("image", None)
         instance = super().update(instance, validated_data)
         if image:
-            instance.image_url = upload_catalog_file(
-                image, f"catalog/car_models/{instance.pk}/{uuid.uuid4().hex}"
-            )
+            try:
+                instance.image_url = upload_catalog_file(
+                    image, f"catalog/car_models/{instance.pk}/{uuid.uuid4().hex}"
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"image": str(e)})
             instance.save(update_fields=["image_url"])
         return instance
 
@@ -154,10 +160,13 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
         description = validated_data.pop("description", None)
         instance = super().create(validated_data)
         if description:
-            instance.description_url = upload_catalog_file(
-                description,
-                f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
-            )
+            try:
+                instance.description_url = upload_catalog_file(
+                    description,
+                    f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"description": str(e)})
             instance.save(update_fields=["description_url"])
         return instance
 
@@ -165,10 +174,13 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
         description = validated_data.pop("description", None)
         instance = super().update(instance, validated_data)
         if description:
-            instance.description_url = upload_catalog_file(
-                description,
-                f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
-            )
+            try:
+                instance.description_url = upload_catalog_file(
+                    description,
+                    f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"description": str(e)})
             instance.save(update_fields=["description_url"])
         return instance
 
