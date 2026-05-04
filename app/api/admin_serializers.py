@@ -7,6 +7,7 @@ from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 from app.models import (
     Accessories,
     Booking,
+    HomeBanner,
     MaintenanceSchedule,
     ServiceCategory,
     ServiceItem,
@@ -333,7 +334,53 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
             "app_theme_default",
             "user_can_change_theme",
             "new_user_default_points",
+            "home_carousel_heading",
         )
+
+
+class AdminHomeBannerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HomeBanner
+        fields = "__all__"
+
+    def create(self, validated_data):
+        image = validated_data.pop("image", None)
+        instance = super().create(validated_data)
+        if image:
+            try:
+                instance.image_url = upload_catalog_file(
+                    image, f"catalog/home_banners/{instance.pk}/{uuid.uuid4().hex}"
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"image": str(e)})
+            instance.save(update_fields=["image_url"])
+        return instance
+
+    def update(self, instance, validated_data):
+        image = validated_data.pop("image", None)
+        instance = super().update(instance, validated_data)
+        if image:
+            try:
+                instance.image_url = upload_catalog_file(
+                    image, f"catalog/home_banners/{instance.pk}/{uuid.uuid4().hex}"
+                )
+            except FirebaseUploadError as e:
+                raise serializers.ValidationError({"image": str(e)})
+            instance.save(update_fields=["image_url"])
+        return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        url = (instance.image_url or "").strip()
+        if url:
+            data["image"] = url
+        elif request and instance.image and getattr(instance.image, "name", None):
+            try:
+                data["image"] = request.build_absolute_uri(instance.image.url)
+            except Exception:
+                pass
+        return data
 
 
 class AdminUserCarListSerializer(serializers.ModelSerializer):

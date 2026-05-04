@@ -37,5 +37,11 @@ urlpatterns = [
         admin_views.AdminMaintenanceDetailView.as_view(),
         name="admin_maintenance_detail",
     ),
+    path("home_banners/", admin_views.AdminHomeBannerListCreateView.as_view(), name="admin_home_banners"),
+    path(
+        "home_banners/<int:pk>/",
+        admin_views.AdminHomeBannerDetailView.as_view(),
+        name="admin_home_banner_detail",
+    ),
     path("site_contact/", admin_views.AdminSiteContactView.as_view(), name="admin_site_contact"),
 ]

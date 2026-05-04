@@ -326,6 +326,23 @@ class TechnicalAssistant(TimestampedModel):
         return self.user.first_name + "  " + self.user.last_name
 
 
+class HomeBanner(TimestampedModel):
+    """Promotional slides on the app home screen carousel (managed from admin catalog)."""
+
+    label = models.CharField(max_length=255)
+    text = models.TextField(blank=True, default="")
+    image = models.ImageField(upload_to="home_banners", null=True, blank=True)
+    image_url = models.URLField(max_length=2048, blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+
+    def __str__(self):
+        return self.label
+
+
 class SiteContactSettings(TimestampedModel):
     """
     Singleton row (pk=1) for hotline / WhatsApp / winch numbers editable from admin dashboard.
@@ -349,6 +366,12 @@ class SiteContactSettings(TimestampedModel):
     new_user_default_points = models.IntegerField(
         default=20,
         help_text="Starting points balance and history for new app accounts.",
+    )
+    home_carousel_heading = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Title shown above the home promo carousel (dashboard Home banners tab).",
     )
 
     class Meta:

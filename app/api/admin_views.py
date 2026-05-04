@@ -16,6 +16,7 @@ from app.api.admin_serializers import (
     AdminAccessorySerializer,
     AdminBookingSerializer,
     AdminBookingUpdateSerializer,
+    AdminHomeBannerSerializer,
     AdminLoyaltySerializer,
     AdminServiceCategorySerializer,
     AdminServiceItemSerializer,
@@ -29,6 +30,7 @@ from app.api.admin_serializers import (
 from app.models import (
     Accessories,
     Booking,
+    HomeBanner,
     MaintenanceSchedule,
     ServiceCategory,
     ServiceItem,
@@ -803,6 +805,40 @@ class AdminMaintenanceDetailView(generics.RetrieveUpdateDestroyAPIView):
             response_message.success({"deleted": True}, "success"),
             status=status.HTTP_200_OK,
         )
+
+
+class AdminHomeBannerListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = HomeBanner.objects.all().order_by("sort_order", "id")
+    serializer_class = AdminHomeBannerSerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_201_CREATED)
+
+
+class AdminHomeBannerDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = HomeBanner.objects.all()
+    serializer_class = AdminHomeBannerSerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(response_message.success(resp.data, "success"), status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(response_message.success({"deleted": True}, "success"), status=status.HTTP_200_OK)
 
 
 class AdminSiteContactView(APIView):

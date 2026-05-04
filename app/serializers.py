@@ -6,7 +6,7 @@ from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 
 from app.models import MaintenanceSchedule, MyHistory, Branches, BranchSlot, Services, ServiceCategory, \
     ServiceItem, Accessories, UsedCar, UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, \
-    Timing, Booking, TechnicalAssistant, RoadAssistantRequest, SiteContactSettings
+    Timing, Booking, TechnicalAssistant, RoadAssistantRequest, SiteContactSettings, HomeBanner
 from user.models import CarModels, UserCars, UserNotification
 
 
@@ -308,6 +308,28 @@ class RoadAssistantRequestSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class HomeBannerPublicSerializer(serializers.ModelSerializer):
+    """Active home promo slides for the mobile app (ordered)."""
+
+    class Meta:
+        model = HomeBanner
+        fields = ("id", "label", "text", "image", "sort_order")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        url = (instance.image_url or "").strip()
+        if url:
+            data["image"] = url
+        else:
+            request = self.context.get("request")
+            if request and instance.image and getattr(instance.image, "name", None):
+                try:
+                    data["image"] = request.build_absolute_uri(instance.image.url)
+                except Exception:
+                    pass
+        return data
+
+
 class SiteContactSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteContactSettings
@@ -320,5 +342,6 @@ class SiteContactSettingsSerializer(serializers.ModelSerializer):
             "app_theme_default",
             "user_can_change_theme",
             "new_user_default_points",
+            "home_carousel_heading",
             "updated_at",
         )

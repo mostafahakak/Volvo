@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 import app.messages as response_message
 from app.models import MyHistory, MaintenanceSchedule, Branches, BranchSlot, Services, ServiceCategory, ServiceItem, \
-    Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings
+    Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings, HomeBanner
 from app.serializers import *
 from app.serializers import ServiceCategorySerializer, ServiceItemSerializer
 from user.models import CarModels, UserCars, UserNotification
@@ -22,6 +22,15 @@ class ListCarModel(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         car_model = CarModels.objects.all()
         serializer = CarModelSerializer(car_model, many=True, context={"request": request})
+        return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
+
+
+class ListHomeBanners(generics.ListAPIView):
+    permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        qs = HomeBanner.objects.filter(is_active=True).order_by("sort_order", "id")
+        serializer = HomeBannerPublicSerializer(qs, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
