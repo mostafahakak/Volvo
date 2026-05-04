@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 import app.messages as response_message
-from app.models import MyHistory, SiteContactSettings
+from app.models import SiteContactSettings
 from user.api.serializer import RegisterSerializer, LoginSerializer, UserCarsSerializer, UserSerializer, \
     LoyaltySerializer, UserSerializer2
 from user.firebase_auth import verify_firebase_id_token
@@ -206,14 +206,6 @@ class Profile(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         user = User.objects.select_related("user_type").filter(id=request.user.id).first()
-        histories = MyHistory.objects.filter(user=user)
-        points = 0
-        for history in histories:
-            for service in history.service.all():
-                points += service.points
-        if user.mypoints != points:
-            user.mypoints = points
-            user.save()
         serializer = UserSerializer(user)
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 

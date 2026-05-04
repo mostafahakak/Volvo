@@ -156,9 +156,24 @@ class Accessories(TimestampedModel):
         default=KIND_ACCESSORY,
         db_index=True,
     )
+    image = models.ImageField(upload_to="accessories", null=True, blank=True)
+    image_url = models.URLField(max_length=2048, blank=True, null=True)
+    gallery_urls = models.JSONField(default=list, blank=True)
+    video_url = models.URLField(max_length=2048, blank=True, null=True)
 
     def __str__(self):
         return self.title
+
+    def resolved_gallery_urls(self):
+        g = self.gallery_urls
+        urls = []
+        if isinstance(g, list):
+            urls = [str(u).strip() for u in g if str(u).strip()]
+        if not urls:
+            u = (self.image_url or "").strip()
+            if u:
+                urls = [u]
+        return urls
 
 
 class RoadAssistantRequest(TimestampedModel):

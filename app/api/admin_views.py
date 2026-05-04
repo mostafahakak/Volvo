@@ -715,6 +715,7 @@ class AdminAccessoriesListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
     queryset = Accessories.objects.all().order_by("-id")
     serializer_class = AdminAccessorySerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def list(self, request, *args, **kwargs):
         resp = super().list(request, *args, **kwargs)
@@ -735,6 +736,7 @@ class AdminAccessoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = Accessories.objects.all().prefetch_related("compatible_with")
     serializer_class = AdminAccessorySerializer
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def retrieve(self, request, *args, **kwargs):
         resp = super().retrieve(request, *args, **kwargs)

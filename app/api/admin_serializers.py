@@ -309,11 +309,94 @@ class AdminAccessorySerializer(serializers.ModelSerializer):
         model = Accessories
         fields = "__all__"
 
+    def validate(self, attrs):
+        instance = self.instance
+        kind = attrs.get("kind", instance.kind if instance else Accessories.KIND_ACCESSORY)
+        if kind == Accessories.KIND_SPECIAL_OFFER:
+            price = attrs.get("price", serializers.empty)
+            if price is serializers.empty:
+                price = instance.price if instance else None
+            if price is None:
+                raise serializers.ValidationError(
+                    {"price": "Price is required for special offers."}
+                )
+        else:
+            attrs["price"] = None
+        return attrs
+
+    def create(self, validated_data):
+        compatible = validated_data.pop("compatible_with", [])
+        legacy_image = validated_data.pop("image", None)
+        initial_urls = validated_data.pop("gallery_urls", None)
+        urls = []
+        if isinstance(initial_urls, list):
+            urls = [str(u).strip() for u in initial_urls if str(u).strip()]
+        instance = Accessories.objects.create(**validated_data)
+        if compatible:
+            instance.compatible_with.set(compatible)
+        files = []
+        request = self.context.get("request")
+        if request:
+            files = [f for f in request.FILES.getlist("images") if f]
+        if legacy_image:
+            files.insert(0, legacy_image)
+        for f in files:
+            try:
+                urls.append(
+                    upload_catalog_file(
+                        f, f"catalog/accessories/{instance.pk}/{uuid.uuid4().hex}"
+                    )
+                )
+            except FirebaseUploadError as e:
+                instance.delete()
+                raise serializers.ValidationError({"images": str(e)})
+        instance.gallery_urls = urls
+        if urls:
+            instance.image_url = urls[0]
+        instance.save(update_fields=["gallery_urls", "image_url"])
+        return instance
+
+    def update(self, instance, validated_data):
+        compatible = validated_data.pop("compatible_with", None)
+        legacy_image = validated_data.pop("image", None)
+        validated_data.pop("replace_gallery", None)
+        instance = super().update(instance, validated_data)
+        if compatible is not None:
+            instance.compatible_with.set(compatible)
+        request = self.context.get("request")
+        files = []
+        if request:
+            files = [f for f in request.FILES.getlist("images") if f]
+        if legacy_image:
+            files.insert(0, legacy_image)
+        if files:
+            append_urls = []
+            for f in files:
+                try:
+                    append_urls.append(
+                        upload_catalog_file(
+                            f, f"catalog/accessories/{instance.pk}/{uuid.uuid4().hex}"
+                        )
+                    )
+                except FirebaseUploadError as e:
+                    raise serializers.ValidationError({"images": str(e)})
+            urls = list(instance.gallery_urls or []) + append_urls
+            instance.gallery_urls = urls
+            if urls:
+                instance.image_url = urls[0]
+            instance.save(update_fields=["gallery_urls", "image_url"])
+        return instance
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["compatible_with_models"] = [
             {"id": c.id, "car_model": c.car_model} for c in instance.compatible_with.all()
         ]
+        gallery = instance.resolved_gallery_urls()
+        data["gallery"] = gallery
+        data["image"] = gallery[0] if gallery else None
+        vu = (instance.video_url or "").strip()
+        data["video_url"] = vu or None
         return data
 
 

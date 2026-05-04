@@ -247,6 +247,15 @@ class AccessoriesSerializer(serializers.ModelSerializer):
         model = Accessories
         fields = "__all__"
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        gallery = instance.resolved_gallery_urls()
+        data["gallery"] = gallery
+        data["image"] = gallery[0] if gallery else data.get("image")
+        vu = (instance.video_url or "").strip()
+        data["video_url"] = vu or None
+        return data
+
 
 class UsedCarSerializer(serializers.ModelSerializer):
     class Meta:
