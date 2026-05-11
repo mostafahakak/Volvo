@@ -320,15 +320,16 @@ class AdminAccessorySerializer(serializers.ModelSerializer):
         instance = self.instance
         kind = attrs.get("kind", instance.kind if instance else Accessories.KIND_ACCESSORY)
         if kind == Accessories.KIND_SPECIAL_OFFER:
-            price = attrs.get("price", serializers.empty)
-            if price is serializers.empty:
-                price = instance.price if instance else None
-            if price is None:
+            discount = attrs.get("discount", serializers.empty)
+            if discount is serializers.empty:
+                discount = instance.discount if instance else 0
+            if discount is None or int(discount) <= 0:
                 raise serializers.ValidationError(
-                    {"price": "Price is required for special offers."}
+                    {"discount": "Discount must be greater than 0 for special offers."}
                 )
         else:
             attrs["price"] = None
+            attrs["discount"] = 0
         return attrs
 
     def create(self, validated_data):

@@ -180,7 +180,7 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def create(self, validated_data):
-        description = validated_data.pop("description", None)
+        validated_data.pop("description", None)
         compatible = validated_data.pop("compatible_car_models", None)
         items = validated_data.pop("service_items", None)
         instance = super().create(validated_data)
@@ -188,20 +188,10 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             instance.compatible_car_models.set(compatible)
         if items is not None:
             instance.service_items.set(items)
-        if description:
-            try:
-                instance.description_url = upload_catalog_file(
-                    description,
-                    f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
-                )
-            except FirebaseUploadError as e:
-                instance.delete()
-                raise serializers.ValidationError({"description": str(e)})
-            instance.save(update_fields=["description_url"])
         return instance
 
     def update(self, instance, validated_data):
-        description = validated_data.pop("description", None)
+        validated_data.pop("description", None)
         compatible = validated_data.pop("compatible_car_models", None)
         items = validated_data.pop("service_items", None)
         instance = super().update(instance, validated_data)
@@ -209,29 +199,11 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             instance.compatible_car_models.set(compatible)
         if items is not None:
             instance.service_items.set(items)
-        if description:
-            try:
-                instance.description_url = upload_catalog_file(
-                    description,
-                    f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
-                )
-            except FirebaseUploadError as e:
-                raise serializers.ValidationError({"description": str(e)})
-            instance.save(update_fields=["description_url"])
         return instance
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        url = (instance.description_url or "").strip()
-        if url:
-            data["description"] = url
-        else:
-            request = self.context.get("request")
-            if request and instance.description and getattr(instance.description, "name", None):
-                try:
-                    data["description"] = request.build_absolute_uri(instance.description.url)
-                except Exception:
-                    pass
+        data["description"] = None
         mt = instance.maintenance_type
         data["maintenance_type_name_ar"] = (mt.name_ar if mt else "") or ""
         data["compatible_car_model_ids"] = list(

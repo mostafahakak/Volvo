@@ -265,9 +265,12 @@ class ListOffers(generics.ListAPIView):
         serializer = AccessoriesSerializer(accessory, many=True)
         data = []
         for access in serializer.data:
-            price = access.get("price") or 0
+            price = access.get("price")
             disc = access.get("discount") or 0
-            access["price_after"] = price - (price * (disc / 100.0)) if disc else price
+            if price is not None and price > 0 and disc:
+                access["price_after"] = price - (price * (disc / 100.0))
+            else:
+                access["price_after"] = None
             data.append(access)
         return Response(response_message.success(data, success_key="success"), status=status.HTTP_200_OK)
 
