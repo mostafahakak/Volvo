@@ -200,7 +200,7 @@ class AdminServiceCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceCategory
-        fields = ("id", "name", "icon", "icon_url", "sort_order", "service_count")
+        fields = ("id", "name", "name_ar", "icon", "icon_url", "sort_order", "service_count")
         read_only_fields = ("service_count",)
 
     def get_service_count(self, obj):
@@ -263,6 +263,7 @@ class AdminServiceSerializer(serializers.ModelSerializer):
         queryset=ServiceCategory.objects.all(), required=False, allow_null=True
     )
     category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    category_name_ar = serializers.CharField(source="category.name_ar", read_only=True, allow_null=True)
     branch_name = serializers.CharField(source="only_at_branch.name", read_only=True, allow_null=True)
     only_at_branch = serializers.PrimaryKeyRelatedField(
         queryset=Branches.objects.all(), required=False, allow_null=True
@@ -284,7 +285,13 @@ class AdminServiceSerializer(serializers.ModelSerializer):
             {"id": c.id, "car_model": c.car_model} for c in instance.compatible_with.all()
         ]
         data["items_detail"] = [
-            {"id": i.id, "name": i.name, "description": i.description, "price": i.price}
+            {
+                "id": i.id,
+                "name": i.name,
+                "name_ar": getattr(i, "name_ar", "") or "",
+                "description": i.description,
+                "price": i.price,
+            }
             for i in instance.items.all()
         ]
         url = (instance.icons_url or "").strip()

@@ -30,6 +30,7 @@ class ServiceCategory(TimestampedModel):
     """
 
     name = models.CharField(max_length=255)
+    name_ar = models.CharField(max_length=255, blank=True, default="")
     icon = models.ImageField(upload_to="service_categories", null=True, blank=True)
     icon_url = models.URLField(max_length=2048, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
@@ -63,6 +64,7 @@ class Services(TimestampedModel):
     min_price = models.IntegerField(null=True, blank=True)
     max_price = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, null=True)
+    name_ar = models.CharField(max_length=255, blank=True, null=True)
     icons = models.ImageField(upload_to="services", null=True, blank=True)
     icons_url = models.URLField(max_length=2048, blank=True, null=True)
     points = models.IntegerField(null=True, blank=True)
@@ -84,6 +86,7 @@ class Services(TimestampedModel):
         related_name="services",
     )
     description = models.TextField(blank=True, null=True)
+    description_ar = models.TextField(blank=True, null=True)
     compatible_with = models.ManyToManyField(
         CarModels,
         blank=True,

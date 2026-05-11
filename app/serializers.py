@@ -13,7 +13,7 @@ from user.models import CarModels, UserCars, UserNotification
 class ServiceCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceCategory
-        fields = ("id", "name", "icon", "icon_url", "sort_order")
+        fields = ("id", "name", "name_ar", "icon", "icon_url", "sort_order")
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -38,6 +38,7 @@ class ServiceItemSerializer(serializers.ModelSerializer):
 
 class ServicesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    category_name_ar = serializers.CharField(source="category.name_ar", read_only=True, allow_null=True)
     branch_name = serializers.CharField(source="only_at_branch.name", read_only=True, allow_null=True)
     compatible_with_models = serializers.SerializerMethodField()
     items_detail = serializers.SerializerMethodField()
@@ -101,7 +102,10 @@ class BookingHistorySerializer(serializers.ModelSerializer):
         )
 
     def get_services(self, obj):
-        return [{"id": s.id, "name": s.name} for s in obj.service.all()]
+        return [
+            {"id": s.id, "name": s.name, "name_ar": getattr(s, "name_ar", None) or ""}
+            for s in obj.service.all()
+        ]
 
 
 class CarModelSerializer(serializers.ModelSerializer):
