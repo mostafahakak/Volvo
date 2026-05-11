@@ -252,7 +252,7 @@ class AdminServiceItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ServiceItem
-        fields = ("id", "name", "description", "price", "service_count")
+        fields = ("id", "name", "name_ar", "description", "price", "service_count")
 
     def get_service_count(self, obj):
         return obj.services.count()

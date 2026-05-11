@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 import app.messages as response_message
-from app.models import MyHistory, MaintenanceSchedule, Branches, BranchSlot, Services, ServiceCategory, ServiceItem, \
+from app.models import MyHistory, MaintenanceSchedule, MaintenanceScheduleType, Branches, BranchSlot, Services, ServiceCategory, ServiceItem, \
     Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings, HomeBanner
 from app.serializers import *
 from app.serializers import ServiceCategorySerializer, ServiceItemSerializer
@@ -34,14 +34,34 @@ class ListHomeBanners(generics.ListAPIView):
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 
 
+class ListMaintenanceScheduleTypes(generics.ListAPIView):
+    permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        qs = MaintenanceScheduleType.objects.all().order_by("sort_order", "id")
+        serializer = MaintenanceScheduleTypeSerializer(qs, many=True, context={"request": request})
+        return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
+
+
 class ListMaintenanceSchedule(generics.ListAPIView):
     # permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        qs = MaintenanceSchedule.objects.all().select_related("car_model")
+        qs = (
+            MaintenanceSchedule.objects.all()
+            .select_related("car_model", "maintenance_type")
+            .prefetch_related("compatible_car_models", "service_items")
+            .order_by("-id")
+        )
         cm = request.query_params.get("car_model_id")
+        mt = request.query_params.get("maintenance_type_id")
+        if mt:
+            qs = qs.filter(maintenance_type_id=int(mt))
         if cm:
-            qs = qs.filter(car_model_id=cm)
+            cm = int(cm)
+            qs = qs.filter(
+                Q(compatible_car_models__id=cm) | Q(car_model_id=cm)
+            ).distinct()
         serializer = MaintenanceScheduleSerializer(qs, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 

@@ -32,13 +32,14 @@ from app.models import (
     Booking,
     HomeBanner,
     MaintenanceSchedule,
+    MaintenanceScheduleType,
     ServiceCategory,
     ServiceItem,
     Services,
     SiteContactSettings,
     Timing,
 )
-from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer
+from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer, MaintenanceScheduleTypeSerializer
 from user.api.serializer import UserSerializer
 from user.models import Branches, CarModels, LoyaltyPoints, User, UserCars
 
@@ -760,9 +761,63 @@ class AdminAccessoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
+class AdminMaintenanceScheduleTypeListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = MaintenanceScheduleType.objects.all().order_by("sort_order", "id")
+    serializer_class = MaintenanceScheduleTypeSerializer
+    parser_classes = (JSONParser, FormParser, MultiPartParser)
+
+    def list(self, request, *args, **kwargs):
+        resp = super().list(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def create(self, request, *args, **kwargs):
+        resp = super().create(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminMaintenanceScheduleTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = MaintenanceScheduleType.objects.all()
+    serializer_class = MaintenanceScheduleTypeSerializer
+    parser_classes = (JSONParser, FormParser, MultiPartParser)
+
+    def retrieve(self, request, *args, **kwargs):
+        resp = super().retrieve(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        return Response(
+            response_message.success(resp.data, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        super().destroy(request, *args, **kwargs)
+        return Response(
+            response_message.success({"deleted": True}, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+
 class AdminMaintenanceListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
-    queryset = MaintenanceSchedule.objects.all().select_related("car_model").order_by("-id")
+    queryset = (
+        MaintenanceSchedule.objects.all()
+        .select_related("car_model", "maintenance_type")
+        .prefetch_related("compatible_car_models", "service_items")
+        .order_by("-id")
+    )
     serializer_class = MaintenanceScheduleSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
@@ -783,7 +838,11 @@ class AdminMaintenanceListCreateView(generics.ListCreateAPIView):
 
 class AdminMaintenanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
-    queryset = MaintenanceSchedule.objects.all().select_related("car_model")
+    queryset = (
+        MaintenanceSchedule.objects.all()
+        .select_related("car_model", "maintenance_type")
+        .prefetch_related("compatible_car_models", "service_items")
+    )
     serializer_class = MaintenanceScheduleSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 

@@ -5,6 +5,7 @@ from app.api.views import *
 urlpatterns = [
     path("list_car_model", ListCarModel.as_view(), name="list_car_model"),
     path("home_banners", ListHomeBanners.as_view(), name="home_banners"),
+    path("maintenance_schedule_types", ListMaintenanceScheduleTypes.as_view(), name="maintenance_schedule_types"),
     path("maintenance_schedule", ListMaintenanceSchedule.as_view(), name="maintenance_schedule"),
     path("my_history", ListMyHistory.as_view(), name="my_history"),
     path("my_service_bookings", ListMyServiceBookings.as_view(), name="my_service_bookings"),

@@ -28,6 +28,16 @@ urlpatterns = [
     path("accessories/", admin_views.AdminAccessoriesListCreateView.as_view(), name="admin_accessories"),
     path("accessories/<int:pk>/", admin_views.AdminAccessoryDetailView.as_view(), name="admin_accessory_detail"),
     path(
+        "maintenance_schedule_types/",
+        admin_views.AdminMaintenanceScheduleTypeListCreateView.as_view(),
+        name="admin_maintenance_types",
+    ),
+    path(
+        "maintenance_schedule_types/<int:pk>/",
+        admin_views.AdminMaintenanceScheduleTypeDetailView.as_view(),
+        name="admin_maintenance_type_detail",
+    ),
+    path(
         "maintenance_schedules/",
         admin_views.AdminMaintenanceListCreateView.as_view(),
         name="admin_maintenance",

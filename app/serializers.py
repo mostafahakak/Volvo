@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 
-from app.models import MaintenanceSchedule, MyHistory, Branches, BranchSlot, Services, ServiceCategory, \
+from app.models import MaintenanceSchedule, MaintenanceScheduleType, MyHistory, Branches, BranchSlot, Services, ServiceCategory, \
     ServiceItem, Accessories, UsedCar, UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, \
     Timing, Booking, TechnicalAssistant, RoadAssistantRequest, SiteContactSettings, HomeBanner
 from user.models import CarModels, UserCars, UserNotification
@@ -33,7 +33,7 @@ class ServiceCategorySerializer(serializers.ModelSerializer):
 class ServiceItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceItem
-        fields = ("id", "name", "description", "price")
+        fields = ("id", "name", "name_ar", "description", "price")
 
 
 class ServicesSerializer(serializers.ModelSerializer):
@@ -54,6 +54,7 @@ class ServicesSerializer(serializers.ModelSerializer):
             {
                 "id": i.id,
                 "name": i.name,
+                "name_ar": getattr(i, "name_ar", "") or "",
                 "description": i.description,
                 "price": i.price,
             }
@@ -149,8 +150,26 @@ class CarModelSerializer(serializers.ModelSerializer):
         return data
 
 
+class MaintenanceScheduleTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MaintenanceScheduleType
+        fields = ("id", "name", "name_ar", "sort_order")
+
+
 class MaintenanceScheduleSerializer(serializers.ModelSerializer):
     car_model_name = serializers.CharField(source="car_model.car_model", read_only=True, allow_null=True)
+    maintenance_type_name = serializers.CharField(
+        source="maintenance_type.name", read_only=True, allow_null=True
+    )
+    compatible_car_models = serializers.PrimaryKeyRelatedField(
+        queryset=CarModels.objects.all(), many=True, required=False
+    )
+    service_items = serializers.PrimaryKeyRelatedField(
+        queryset=ServiceItem.objects.all(), many=True, required=False
+    )
+    maintenance_type = serializers.PrimaryKeyRelatedField(
+        queryset=MaintenanceScheduleType.objects.all(), allow_null=True, required=False
+    )
 
     class Meta:
         model = MaintenanceSchedule
@@ -158,7 +177,13 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         description = validated_data.pop("description", None)
+        compatible = validated_data.pop("compatible_car_models", None)
+        items = validated_data.pop("service_items", None)
         instance = super().create(validated_data)
+        if compatible is not None:
+            instance.compatible_car_models.set(compatible)
+        if items is not None:
+            instance.service_items.set(items)
         if description:
             try:
                 instance.description_url = upload_catalog_file(
@@ -166,13 +191,20 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
                     f"catalog/maintenance_schedules/{instance.pk}/{uuid.uuid4().hex}",
                 )
             except FirebaseUploadError as e:
+                instance.delete()
                 raise serializers.ValidationError({"description": str(e)})
             instance.save(update_fields=["description_url"])
         return instance
 
     def update(self, instance, validated_data):
         description = validated_data.pop("description", None)
+        compatible = validated_data.pop("compatible_car_models", None)
+        items = validated_data.pop("service_items", None)
         instance = super().update(instance, validated_data)
+        if compatible is not None:
+            instance.compatible_car_models.set(compatible)
+        if items is not None:
+            instance.service_items.set(items)
         if description:
             try:
                 instance.description_url = upload_catalog_file(
@@ -189,13 +221,30 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
         url = (instance.description_url or "").strip()
         if url:
             data["description"] = url
-            return data
-        request = self.context.get("request")
-        if request and instance.description and getattr(instance.description, "name", None):
-            try:
-                data["description"] = request.build_absolute_uri(instance.description.url)
-            except Exception:
-                pass
+        else:
+            request = self.context.get("request")
+            if request and instance.description and getattr(instance.description, "name", None):
+                try:
+                    data["description"] = request.build_absolute_uri(instance.description.url)
+                except Exception:
+                    pass
+        mt = instance.maintenance_type
+        data["maintenance_type_name_ar"] = (mt.name_ar if mt else "") or ""
+        data["compatible_car_model_ids"] = list(
+            instance.compatible_car_models.values_list("id", flat=True)
+        )
+        data["compatible_car_models_detail"] = [
+            {"id": c.id, "car_model": c.car_model} for c in instance.compatible_car_models.all()
+        ]
+        data["service_items_detail"] = [
+            {
+                "id": si.id,
+                "name": si.name,
+                "name_ar": (getattr(si, "name_ar", None) or "") or "",
+                "price": si.price,
+            }
+            for si in instance.service_items.all().order_by("name")
+        ]
         return data
 
 

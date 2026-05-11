@@ -46,6 +46,7 @@ class ServiceItem(TimestampedModel):
     """A reusable item / line entry that can be linked to many services."""
 
     name = models.CharField(max_length=255)
+    name_ar = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField(blank=True, null=True)
     # Optional EGP estimate shown in the app when booking; final invoice may differ.
     price = models.IntegerField(null=True, blank=True)
@@ -209,6 +210,20 @@ class UsedCarsImage(TimestampedModel):
         return self.used_car.car_model.car_model
 
 
+class MaintenanceScheduleType(TimestampedModel):
+    """e.g. 10k km service, major inspection — user picks type before seeing schedule."""
+
+    name = models.CharField(max_length=255)
+    name_ar = models.CharField(max_length=255, blank=True, default="")
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order", "id")
+
+    def __str__(self):
+        return self.name
+
+
 class MaintenanceSchedule(TimestampedModel):
     description = models.ImageField('images', null=True, blank=True)
     description_url = models.URLField(max_length=2048, blank=True, null=True)
@@ -218,6 +233,24 @@ class MaintenanceSchedule(TimestampedModel):
         null=True,
         blank=True,
         related_name="maintenance_schedules",
+    )
+    maintenance_type = models.ForeignKey(
+        MaintenanceScheduleType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="schedules",
+    )
+    approximate_price = models.IntegerField(null=True, blank=True)
+    compatible_car_models = models.ManyToManyField(
+        CarModels,
+        blank=True,
+        related_name="maintenance_schedule_entries",
+    )
+    service_items = models.ManyToManyField(
+        ServiceItem,
+        blank=True,
+        related_name="maintenance_schedules_linked",
     )
 
 
