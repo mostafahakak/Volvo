@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -12,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import app.messages as response_message
 from user.notifications_service import notify_user_record
 from user.models import UserNotification
+
 from app.api.admin_serializers import (
     AdminAccessorySerializer,
     AdminBookingSerializer,
@@ -42,6 +44,8 @@ from app.models import (
 from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer, MaintenanceScheduleTypeSerializer
 from user.api.serializer import UserSerializer
 from user.models import Branches, CarModels, LoyaltyPoints, User, UserCars
+
+logger = logging.getLogger(__name__)
 
 
 class AdminLoginView(APIView):
@@ -139,8 +143,34 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
     def update(self, request, *args, **kwargs):
-        resp = super().update(request, *args, **kwargs)
-        user = self.get_object()
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        prev_verified = bool(instance.is_verified)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        user = serializer.instance
+        if getattr(user, "_prefetched_objects_cache", None):
+            user._prefetched_objects_cache = {}
+
+        if not prev_verified and user.is_verified:
+            try:
+                notify_user_record(
+                    user,
+                    kind=UserNotification.KIND_ADMIN,
+                    title="Account verified",
+                    body=(
+                        "Your Volvo account has been verified. "
+                        "You can now use bookings and services without restrictions."
+                    ),
+                    extra_fcm_data={"type": "account_verified"},
+                )
+            except Exception:
+                logger.exception(
+                    "notify user account_verified failed user_id=%s", user.pk
+                )
+
         return Response(
             response_message.success(AdminUserSerializer(user).data, "success"),
             status=status.HTTP_200_OK,
@@ -293,9 +323,47 @@ class AdminUserCarDetailView(generics.RetrieveUpdateAPIView):
         )
 
     def update(self, request, *args, **kwargs):
-        resp = super().update(request, *args, **kwargs)
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        prev_verified = bool(instance.is_verified)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        car = serializer.instance
+        if getattr(car, "_prefetched_objects_cache", None):
+            car._prefetched_objects_cache = {}
+
+        owner = getattr(car, "user", None)
+        if (
+            owner
+            and not prev_verified
+            and car.is_verified
+        ):
+            try:
+                vin = (car.chassis_number or "").strip()
+                tail = vin[-6:] if len(vin) >= 6 else vin
+                notify_user_record(
+                    owner,
+                    kind=UserNotification.KIND_ADMIN,
+                    title="Vehicle verified",
+                    body=(
+                        "Your vehicle has been verified"
+                        + (f" (VIN ending …{tail})." if tail else ".")
+                        + " You can book service for this car."
+                    ),
+                    extra_fcm_data={
+                        "type": "vehicle_verified",
+                        "user_car_id": str(car.pk),
+                    },
+                )
+            except Exception:
+                logger.exception(
+                    "notify vehicle_verified failed user_car_id=%s", car.pk
+                )
+
         return Response(
-            response_message.success(resp.data, "success"),
+            response_message.success(serializer.data, "success"),
             status=status.HTTP_200_OK,
         )
 

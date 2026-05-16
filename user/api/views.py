@@ -11,6 +11,7 @@ from app.models import SiteContactSettings
 from user.api.serializer import RegisterSerializer, LoginSerializer, UserCarsSerializer, UserSerializer, \
     LoyaltySerializer, UserSerializer2
 from user.firebase_auth import verify_firebase_id_token
+from user.admin_notify import notify_all_staff_fcm
 from user.models import User, LoyaltyPoints, UserRequests, UserCars
 
 
@@ -97,6 +98,7 @@ class FirebasePhoneAuthView(APIView):
             )
 
         user = User.objects.filter(mobile=mobile).first()
+        created_pending_verification = False
         if not user:
             user = User.objects.create_user(
                 mobile=mobile,
@@ -109,6 +111,23 @@ class FirebasePhoneAuthView(APIView):
             SiteContactSettings.get_solo().apply_starting_points_to_user(user)
             user.save()
             UserRequests.objects.create(user=user)
+            created_pending_verification = True
+
+        if created_pending_verification:
+            try:
+                notify_all_staff_fcm(
+                    title="New registration pending verification",
+                    body=(
+                        f"{first_name} {last_name} ({mobile}) signed up and needs "
+                        "admin approval."
+                    ),
+                    data={
+                        "type": "user_pending_verification",
+                        "user_id": str(user.pk),
+                    },
+                )
+            except Exception:
+                pass
 
         refresh = RefreshToken.for_user(user)
         payload = {
@@ -128,6 +147,20 @@ class SignUp(generics.CreateAPIView):
         created_user.is_valid(raise_exception=True)
         user = created_user.save()
         UserRequests.objects.create(user=user).save()
+        try:
+            notify_all_staff_fcm(
+                title="New registration pending verification",
+                body=(
+                    f"{user.first_name or ''} {user.last_name or ''} ({user.mobile}) "
+                    "registered and needs admin approval."
+                ),
+                data={
+                    "type": "user_pending_verification",
+                    "user_id": str(user.pk),
+                },
+            )
+        except Exception:
+            pass
         # user_data = {
         #     "mobile": created_user.data.get('mobile'),
         #     "password": request.data.get("password")
@@ -145,8 +178,30 @@ class AddUserCar(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = UserCarsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(user=request.user)
-        return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_201_CREATED)
+        car = serializer.save(user=request.user)
+        try:
+            u = request.user
+            vin = (car.chassis_number or "").strip()
+            plate = (car.plate_number or "").strip()
+            notify_all_staff_fcm(
+                title="Vehicle pending verification",
+                body=(
+                    f"{u.first_name or ''} {u.last_name or ''} ({u.mobile}) submitted a "
+                    f"vehicle (VIN ending …{vin[-6:] if len(vin) >= 6 else vin}, plate {plate}) "
+                    "for verification."
+                ),
+                data={
+                    "type": "vehicle_pending_verification",
+                    "user_id": str(u.pk),
+                    "user_car_id": str(car.pk),
+                },
+            )
+        except Exception:
+            pass
+        return Response(
+            response_message.success(serializer.data, success_key="success"),
+            status=status.HTTP_201_CREATED,
+        )
 
 
 def _user_may_modify_vehicle(car: UserCars) -> bool:
