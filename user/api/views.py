@@ -74,6 +74,7 @@ class FirebasePhoneAuthView(APIView):
         )
         first_name = (request.data.get("first_name") or "").strip() or "User"
         last_name = (request.data.get("last_name") or "").strip() or ""
+        email = (request.data.get("email") or "").strip().lower() or None
 
         if not mobile:
             return Response(
@@ -102,7 +103,7 @@ class FirebasePhoneAuthView(APIView):
         if not user:
             user = User.objects.create_user(
                 mobile=mobile,
-                email=None,
+                email=email,
                 password=None,
                 first_name=first_name,
                 last_name=last_name,
@@ -112,6 +113,9 @@ class FirebasePhoneAuthView(APIView):
             user.save()
             UserRequests.objects.create(user=user)
             created_pending_verification = True
+        elif email and not user.email:
+            user.email = email
+            user.save(update_fields=["email"])
 
         if created_pending_verification:
             try:
@@ -347,3 +351,55 @@ class ChangePassword(generics.CreateAPIView):
                 )
         else:
             return Response({"error": "error"})
+
+
+class SocialAuthCheckView(APIView):
+    """
+    Verify a Firebase ID token from Apple/Google Sign-In.
+    If a user with the token's email exists, return JWT tokens (login).
+    Otherwise return exists=false so the app can redirect to registration.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        id_token = request.data.get("id_token") or request.data.get("idToken")
+
+        decoded = verify_firebase_id_token(id_token) if id_token else None
+        if decoded is None:
+            return Response(
+                {"error": "Invalid or expired Firebase token"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        email = (decoded.get("email") or "").strip().lower()
+        name = decoded.get("name") or ""
+
+        if not email:
+            firebase_info = decoded.get("firebase", {})
+            identities = firebase_info.get("identities", {})
+            email_list = identities.get("email", [])
+            if email_list:
+                email = email_list[0].strip().lower()
+
+        if not email:
+            return Response(
+                {"error": "No email associated with this account"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email=email).first()
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "exists": True,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user_data": UserSerializer(user).data,
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "exists": False,
+            "email": email,
+            "name": name,
+        }, status=status.HTTP_200_OK)

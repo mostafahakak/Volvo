@@ -5,6 +5,7 @@ urlpatterns = [
     path('signup', SignUp.as_view(), name='signup'),
     path('check_mobile', CheckMobileRegisteredView.as_view(), name='check_mobile'),
     path('firebase_login', FirebasePhoneAuthView.as_view(), name='firebase_login'),
+    path('social_auth_check', SocialAuthCheckView.as_view(), name='social_auth_check'),
     path('login', LoginView.as_view(), name='login'),
     path('add_user_car', AddUserCar.as_view(), name='add_user_car'),
     path('user_car/<int:pk>', UserCarDetailView.as_view(), name='user_car_detail'),
