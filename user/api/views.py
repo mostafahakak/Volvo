@@ -59,6 +59,18 @@ def _normalize_phone_e164(s):
     return d
 
 
+def _account_deactivated_response():
+    return Response(
+        {
+            "error": (
+                "This account was deactivated. Contact the dealer to restore access."
+            ),
+            "account_deactivated": True,
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+
 class FirebasePhoneAuthView(APIView):
     """
     After Firebase Phone Auth on the client, send the Firebase ID token.
@@ -100,6 +112,8 @@ class FirebasePhoneAuthView(APIView):
 
         user = User.objects.filter(mobile=mobile).first()
         created_pending_verification = False
+        if user and not user.is_active:
+            return _account_deactivated_response()
         if not user:
             user = User.objects.create_user(
                 mobile=mobile,
@@ -353,6 +367,33 @@ class ChangePassword(generics.CreateAPIView):
             return Response({"error": "error"})
 
 
+class DeleteAccountView(APIView):
+    """
+    Soft-delete: deactivate the account but keep all user data in the database.
+    The user cannot sign in again until an admin reactivates the account.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"error": "Staff accounts cannot be deleted from the app."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.is_active = False
+        user.notification_token = ""
+        user.save(update_fields=["is_active", "notification_token"])
+        return Response(
+            {
+                "deleted": True,
+                "message": "Your account has been deactivated.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class SocialAuthCheckView(APIView):
     """
     Verify a Firebase ID token from Apple/Google Sign-In.
@@ -390,6 +431,8 @@ class SocialAuthCheckView(APIView):
 
         user = User.objects.filter(email=email).first()
         if user:
+            if not user.is_active:
+                return _account_deactivated_response()
             refresh = RefreshToken.for_user(user)
             return Response({
                 "exists": True,

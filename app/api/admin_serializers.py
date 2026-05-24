@@ -30,6 +30,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "email",
             "mobile",
             "is_verified",
+            "is_active",
             "mypoints",
             "history_points",
             "next_service_km",
@@ -51,6 +52,7 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             "is_verified",
+            "is_active",
             "user_type",
             "next_service_km",
             "next_service_date",

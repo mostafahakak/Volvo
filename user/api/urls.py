@@ -14,4 +14,5 @@ urlpatterns = [
     path('update_profile', UpdateProfile.as_view(), name='update_profile'),
     path('loyalty_level', LoyaltyLevel.as_view(), name='loyalty_level'),
     path('change_password', ChangePassword.as_view(), name='change_password'),
+    path('delete_account', DeleteAccountView.as_view(), name='delete_account'),
 ]

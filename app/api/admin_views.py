@@ -146,6 +146,7 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
         prev_verified = bool(instance.is_verified)
+        prev_active = bool(instance.is_active)
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -169,6 +170,23 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
             except Exception:
                 logger.exception(
                     "notify user account_verified failed user_id=%s", user.pk
+                )
+
+        if not prev_active and user.is_active:
+            try:
+                notify_user_record(
+                    user,
+                    kind=UserNotification.KIND_ADMIN,
+                    title="Account restored",
+                    body=(
+                        "Your V-Auto account has been restored. "
+                        "You can sign in again with your phone number."
+                    ),
+                    extra_fcm_data={"type": "account_restored"},
+                )
+            except Exception:
+                logger.exception(
+                    "notify user account_restored failed user_id=%s", user.pk
                 )
 
         return Response(
