@@ -42,23 +42,7 @@ class CheckMobileRegisteredView(APIView):
         )
 
 
-def _normalize_phone(s):
-    if not s:
-        return ""
-    return "".join(s.split())
-
-
-def _normalize_phone_e164(s):
-    """
-    Collapse whitespace then fix common Egypt typo: +2001... → +201...
-    (leading0 after country code 20).
-    """
-    d = _normalize_phone(s)
-    if d.startswith("+20") and len(d) > 4 and d[4] == "0":
-        d = "+20" + d[5:]
-    return d
-
-
+from user.phone_utils import normalize_phone_e164 as _normalize_phone_e164
 def _account_deactivated_response():
     return Response(
         {
