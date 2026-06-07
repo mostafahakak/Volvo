@@ -237,12 +237,10 @@ class MaintenanceSchedule(TimestampedModel):
         blank=True,
         related_name="maintenance_schedules",
     )
-    maintenance_type = models.ForeignKey(
+    maintenance_types = models.ManyToManyField(
         MaintenanceScheduleType,
-        on_delete=models.SET_NULL,
-        null=True,
         blank=True,
-        related_name="schedules",
+        related_name="maintenance_schedules",
     )
     approximate_price = models.IntegerField(null=True, blank=True)
     compatible_car_models = models.ManyToManyField(

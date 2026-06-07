@@ -49,14 +49,14 @@ class ListMaintenanceSchedule(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         qs = (
             MaintenanceSchedule.objects.all()
-            .select_related("car_model", "maintenance_type")
-            .prefetch_related("compatible_car_models", "service_items")
+            .select_related("car_model")
+            .prefetch_related("maintenance_types", "compatible_car_models", "service_items")
             .order_by("-id")
         )
         cm = request.query_params.get("car_model_id")
         mt = request.query_params.get("maintenance_type_id")
         if mt:
-            qs = qs.filter(maintenance_type_id=int(mt))
+            qs = qs.filter(maintenance_types__id=int(mt)).distinct()
         if cm:
             cm = int(cm)
             qs = qs.filter(

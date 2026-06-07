@@ -162,50 +162,94 @@ class MaintenanceScheduleTypeSerializer(serializers.ModelSerializer):
 
 class MaintenanceScheduleSerializer(serializers.ModelSerializer):
     car_model_name = serializers.CharField(source="car_model.car_model", read_only=True, allow_null=True)
-    maintenance_type_name = serializers.CharField(
-        source="maintenance_type.name", read_only=True, allow_null=True
-    )
     compatible_car_models = serializers.PrimaryKeyRelatedField(
         queryset=CarModels.objects.all(), many=True, required=False
     )
     service_items = serializers.PrimaryKeyRelatedField(
         queryset=ServiceItem.objects.all(), many=True, required=False
     )
-    maintenance_type = serializers.PrimaryKeyRelatedField(
-        queryset=MaintenanceScheduleType.objects.all(), allow_null=True, required=False
+    maintenance_types = serializers.PrimaryKeyRelatedField(
+        queryset=MaintenanceScheduleType.objects.all(), many=True, required=False
     )
+    maintenance_type = serializers.SerializerMethodField()
+    maintenance_type_name = serializers.SerializerMethodField()
+    maintenance_type_name_ar = serializers.SerializerMethodField()
+    maintenance_types_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = MaintenanceSchedule
         fields = "__all__"
 
+    def _ordered_types(self, instance):
+        return list(instance.maintenance_types.all().order_by("sort_order", "id"))
+
+    def get_maintenance_type(self, instance):
+        types = self._ordered_types(instance)
+        return types[0].id if types else None
+
+    def get_maintenance_type_name(self, instance):
+        types = self._ordered_types(instance)
+        if not types:
+            return None
+        return ", ".join(t.name for t in types)
+
+    def get_maintenance_type_name_ar(self, instance):
+        types = self._ordered_types(instance)
+        names = [(t.name_ar or "").strip() for t in types if (t.name_ar or "").strip()]
+        return ", ".join(names) if names else ""
+
+    def get_maintenance_types_detail(self, instance):
+        return [
+            {"id": t.id, "name": t.name, "name_ar": (t.name_ar or "") or ""}
+            for t in self._ordered_types(instance)
+        ]
+
+    def validate(self, attrs):
+        types = attrs.get("maintenance_types")
+        if types is not None and len(types) == 0:
+            raise serializers.ValidationError(
+                {"maintenance_types": "Select at least one maintenance type."}
+            )
+        if self.instance is None and not types:
+            raise serializers.ValidationError(
+                {"maintenance_types": "Select at least one maintenance type."}
+            )
+        return attrs
+
     def create(self, validated_data):
         validated_data.pop("description", None)
         compatible = validated_data.pop("compatible_car_models", None)
         items = validated_data.pop("service_items", None)
+        types = validated_data.pop("maintenance_types", None)
         instance = super().create(validated_data)
         if compatible is not None:
             instance.compatible_car_models.set(compatible)
         if items is not None:
             instance.service_items.set(items)
+        if types is not None:
+            instance.maintenance_types.set(types)
         return instance
 
     def update(self, instance, validated_data):
         validated_data.pop("description", None)
         compatible = validated_data.pop("compatible_car_models", None)
         items = validated_data.pop("service_items", None)
+        types = validated_data.pop("maintenance_types", None)
         instance = super().update(instance, validated_data)
         if compatible is not None:
             instance.compatible_car_models.set(compatible)
         if items is not None:
             instance.service_items.set(items)
+        if types is not None:
+            instance.maintenance_types.set(types)
         return instance
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["description"] = None
-        mt = instance.maintenance_type
-        data["maintenance_type_name_ar"] = (mt.name_ar if mt else "") or ""
+        data["maintenance_type_ids"] = list(
+            instance.maintenance_types.values_list("id", flat=True)
+        )
         data["compatible_car_model_ids"] = list(
             instance.compatible_car_models.values_list("id", flat=True)
         )

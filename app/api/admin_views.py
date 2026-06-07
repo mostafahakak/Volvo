@@ -900,8 +900,8 @@ class AdminMaintenanceListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
     queryset = (
         MaintenanceSchedule.objects.all()
-        .select_related("car_model", "maintenance_type")
-        .prefetch_related("compatible_car_models", "service_items")
+        .select_related("car_model")
+        .prefetch_related("maintenance_types", "compatible_car_models", "service_items")
         .order_by("-id")
     )
     serializer_class = MaintenanceScheduleSerializer
@@ -926,8 +926,8 @@ class AdminMaintenanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = (
         MaintenanceSchedule.objects.all()
-        .select_related("car_model", "maintenance_type")
-        .prefetch_related("compatible_car_models", "service_items")
+        .select_related("car_model")
+        .prefetch_related("maintenance_types", "compatible_car_models", "service_items")
     )
     serializer_class = MaintenanceScheduleSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
