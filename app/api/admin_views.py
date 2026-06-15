@@ -32,6 +32,7 @@ from app.api.admin_serializers import (
 from app.models import (
     Accessories,
     Booking,
+    BranchBookingOpenDay,
     HomeBanner,
     MaintenanceSchedule,
     MaintenanceScheduleType,
@@ -40,6 +41,12 @@ from app.models import (
     Services,
     SiteContactSettings,
     Timing,
+)
+from app.booking_calendar import (
+    branch_date_is_open,
+    ensure_branch_timings,
+    iter_dates_inclusive,
+    parse_booking_date,
 )
 from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer, MaintenanceScheduleTypeSerializer
 from user.api.serializer import UserSerializer
@@ -241,10 +248,10 @@ class AdminBookingCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            d = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-            if d.weekday() == 4:
+            d = parse_booking_date(date)
+            if not branch_date_is_open(branch, d):
                 return Response(
-                    response_message.error("error", "Fridays are closed for booking"),
+                    response_message.error("error", "This branch is not open for booking on the selected date"),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except (TypeError, ValueError):
@@ -986,6 +993,150 @@ class AdminHomeBannerDetailView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         super().destroy(request, *args, **kwargs)
         return Response(response_message.success({"deleted": True}, "success"), status=status.HTTP_200_OK)
+
+
+class AdminBookingOpenDayListView(APIView):
+    """List open booking days for a branch (dashboard calendar)."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        branch_id = request.query_params.get("branch_id")
+        if not branch_id:
+            return Response(
+                response_message.error("error", "branch_id is required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        qs = BranchBookingOpenDay.objects.filter(branch_id=branch_id).select_related("branch")
+        date_from = (request.query_params.get("date_from") or "").strip()
+        date_to = (request.query_params.get("date_to") or "").strip()
+        if date_from:
+            qs = qs.filter(date__gte=date_from)
+        if date_to:
+            qs = qs.filter(date__lte=date_to)
+        rows = [
+            {
+                "id": row.id,
+                "branch_id": row.branch_id,
+                "branch_name": row.branch.name if row.branch else "",
+                "date": row.date.isoformat(),
+            }
+            for row in qs.order_by("date", "id")
+        ]
+        return Response(response_message.success(rows, "success"), status=status.HTTP_200_OK)
+
+
+class AdminBookingOpenDayBulkView(APIView):
+    """Add or remove open booking days for a date range."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        branch_id = request.data.get("branch_id")
+        date_from = (request.data.get("date_from") or "").strip()
+        date_to = (request.data.get("date_to") or date_from).strip()
+        skip_fridays = request.data.get("skip_fridays", True)
+        if skip_fridays in (False, "false", "0", 0):
+            skip_fridays = False
+        else:
+            skip_fridays = True
+
+        if not branch_id or not date_from:
+            return Response(
+                response_message.error("error", "branch_id and date_from are required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        branch = Branches.objects.filter(id=branch_id).first()
+        if not branch:
+            return Response(
+                response_message.error("error", "Invalid branch_id"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            start = parse_booking_date(date_from)
+            end = parse_booking_date(date_to)
+        except ValueError:
+            return Response(
+                response_message.error("error", "date_from and date_to must be YYYY-MM-DD"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if end < start:
+            return Response(
+                response_message.error("error", "date_to must be on or after date_from"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ensure_branch_timings(branch)
+        created = 0
+        skipped = 0
+        for day in iter_dates_inclusive(start, end):
+            if skip_fridays and day.weekday() == 4:
+                skipped += 1
+                continue
+            _, was_created = BranchBookingOpenDay.objects.get_or_create(branch=branch, date=day)
+            if was_created:
+                created += 1
+            else:
+                skipped += 1
+
+        return Response(
+            response_message.success(
+                {
+                    "created": created,
+                    "skipped": skipped,
+                    "branch_id": branch.id,
+                    "date_from": start.isoformat(),
+                    "date_to": end.isoformat(),
+                },
+                "success",
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, *args, **kwargs):
+        branch_id = request.data.get("branch_id")
+        date_from = (request.data.get("date_from") or "").strip()
+        date_to = (request.data.get("date_to") or date_from).strip()
+        if not branch_id or not date_from:
+            return Response(
+                response_message.error("error", "branch_id and date_from are required"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        branch = Branches.objects.filter(id=branch_id).first()
+        if not branch:
+            return Response(
+                response_message.error("error", "Invalid branch_id"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            start = parse_booking_date(date_from)
+            end = parse_booking_date(date_to)
+        except ValueError:
+            return Response(
+                response_message.error("error", "date_from and date_to must be YYYY-MM-DD"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if end < start:
+            return Response(
+                response_message.error("error", "date_to must be on or after date_from"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted, _ = BranchBookingOpenDay.objects.filter(
+            branch=branch, date__gte=start, date__lte=end
+        ).delete()
+        return Response(
+            response_message.success(
+                {
+                    "deleted": deleted,
+                    "branch_id": branch.id,
+                    "date_from": start.isoformat(),
+                    "date_to": end.isoformat(),
+                },
+                "success",
+            ),
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminSiteContactView(APIView):

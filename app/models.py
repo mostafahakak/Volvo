@@ -22,6 +22,26 @@ class Timing(TimestampedModel):
         return self.branch.name + "--" + str(self.time)
 
 
+class BranchBookingOpenDay(TimestampedModel):
+    """Dates when a branch accepts service bookings in the app."""
+
+    branch = models.ForeignKey(
+        Branches,
+        on_delete=models.CASCADE,
+        related_name="booking_open_days",
+    )
+    date = models.DateField(db_index=True)
+
+    class Meta:
+        ordering = ("date", "id")
+        constraints = [
+            models.UniqueConstraint(fields=["branch", "date"], name="uniq_branch_booking_open_day"),
+        ]
+
+    def __str__(self):
+        return f"{self.branch.name} — {self.date.isoformat()}"
+
+
 class ServiceCategory(TimestampedModel):
     """Top-level grouping shown in the app's Book-a-Service screen.
 

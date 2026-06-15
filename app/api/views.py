@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 import app.messages as response_message
 from app.models import MyHistory, MaintenanceSchedule, MaintenanceScheduleType, Branches, BranchSlot, Services, ServiceCategory, ServiceItem, \
     Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings, HomeBanner
+from app.booking_calendar import branch_date_is_open, is_friday, parse_booking_date
 from app.serializers import *
 from app.serializers import ServiceCategorySerializer, ServiceItemSerializer
 from user.models import CarModels, UserCars, UserNotification
@@ -326,8 +327,8 @@ class ListTimeToBookService(generics.ListAPIView):
         date_str = request.query_params.get("date")
         if date_str:
             try:
-                d = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
-                if d.weekday() == 4:
+                d = parse_booking_date(date_str)
+                if not branch_date_is_open(branch, d):
                     return Response(
                         response_message.success([], success_key="success"),
                         status=status.HTTP_200_OK,
@@ -395,10 +396,10 @@ class BookAService(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            d = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-            if d.weekday() == 4:
+            d = parse_booking_date(date)
+            if not branch_date_is_open(branch, d):
                 return Response(
-                    {"error": "Fridays are closed for booking"},
+                    {"error": "This branch is not open for booking on the selected date"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except (TypeError, ValueError):

@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 
+from app.booking_calendar import branch_date_is_open, parse_booking_date
 from app.models import (
     Accessories,
     Booking,
@@ -190,10 +191,20 @@ class AdminBookingUpdateSerializer(serializers.ModelSerializer):
             return attrs
         branch = attrs.get("branch", instance.branch)
         time = attrs.get("time", instance.time)
+        date_val = attrs.get("date", instance.date)
         if branch and time and getattr(time, "branch_id", None) and time.branch_id != branch.id:
             raise serializers.ValidationError(
                 {"time": "The selected time slot does not belong to the selected branch."}
             )
+        if branch and date_val:
+            try:
+                d = parse_booking_date(str(date_val).strip())
+                if not branch_date_is_open(branch, d):
+                    raise serializers.ValidationError(
+                        {"date": "This branch is not open for booking on the selected date."}
+                    )
+            except ValueError:
+                raise serializers.ValidationError({"date": "date must be YYYY-MM-DD"})
         return attrs
 
 
