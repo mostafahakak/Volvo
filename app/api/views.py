@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 import app.messages as response_message
 from app.models import MyHistory, MaintenanceSchedule, MaintenanceScheduleType, Branches, BranchSlot, Services, ServiceCategory, ServiceItem, \
     Accessories, UsedCarsImage, UsedCar, AboutUS, Timing, Booking, TechnicalAssistant, SiteContactSettings, HomeBanner
-from app.booking_calendar import branch_date_is_open, is_friday, parse_booking_date
+from app.booking_calendar import branch_date_is_open, is_friday, parse_booking_date, timings_for_branch_on_date
 from app.serializers import *
 from app.serializers import ServiceCategorySerializer, ServiceItemSerializer
 from user.models import CarModels, UserCars, UserNotification
@@ -325,6 +325,7 @@ class ListTimeToBookService(generics.ListAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         date_str = request.query_params.get("date")
+        timing = Timing.objects.filter(branch=branch)
         if date_str:
             try:
                 d = parse_booking_date(date_str)
@@ -333,9 +334,9 @@ class ListTimeToBookService(generics.ListAPIView):
                         response_message.success([], success_key="success"),
                         status=status.HTTP_200_OK,
                     )
+                timing = timings_for_branch_on_date(branch, d)
             except ValueError:
                 pass
-        timing = Timing.objects.filter(branch=branch)
         booked = Booking.objects.filter(
             branch=branch, time__in=timing, date=date_str, status=False
         ).exclude(workflow_status=Booking.WORKFLOW_CANCELLED)
@@ -400,6 +401,14 @@ class BookAService(generics.CreateAPIView):
             if not branch_date_is_open(branch, d):
                 return Response(
                     {"error": "This branch is not open for booking on the selected date"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            allowed_ids = set(
+                timings_for_branch_on_date(branch, d).values_list("id", flat=True)
+            )
+            if allowed_ids and time.id not in allowed_ids:
+                return Response(
+                    {"error": "This time slot is not open on the selected date"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except (TypeError, ValueError):

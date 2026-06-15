@@ -31,6 +31,11 @@ class BranchBookingOpenDay(TimestampedModel):
         related_name="booking_open_days",
     )
     date = models.DateField(db_index=True)
+    enabled_times = models.ManyToManyField(
+        Timing,
+        blank=True,
+        related_name="booking_open_days",
+    )
 
     class Meta:
         ordering = ("date", "id")

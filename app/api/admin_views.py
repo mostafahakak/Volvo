@@ -46,7 +46,11 @@ from app.booking_calendar import (
     branch_date_is_open,
     ensure_branch_timings,
     iter_dates_inclusive,
+    normalize_booking_hours,
+    open_day_row_dict,
     parse_booking_date,
+    timings_for_branch_on_date,
+    timings_for_hours,
 )
 from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer, MaintenanceScheduleTypeSerializer
 from user.api.serializer import UserSerializer
@@ -252,6 +256,14 @@ class AdminBookingCreateView(APIView):
             if not branch_date_is_open(branch, d):
                 return Response(
                     response_message.error("error", "This branch is not open for booking on the selected date"),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            allowed_ids = set(
+                timings_for_branch_on_date(branch, d).values_list("id", flat=True)
+            )
+            if allowed_ids and time.id not in allowed_ids:
+                return Response(
+                    response_message.error("error", "This time slot is not open on the selected date"),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except (TypeError, ValueError):
@@ -1007,22 +1019,18 @@ class AdminBookingOpenDayListView(APIView):
                 response_message.error("error", "branch_id is required"),
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs = BranchBookingOpenDay.objects.filter(branch_id=branch_id).select_related("branch")
+        qs = (
+            BranchBookingOpenDay.objects.filter(branch_id=branch_id)
+            .select_related("branch")
+            .prefetch_related("enabled_times")
+        )
         date_from = (request.query_params.get("date_from") or "").strip()
         date_to = (request.query_params.get("date_to") or "").strip()
         if date_from:
             qs = qs.filter(date__gte=date_from)
         if date_to:
             qs = qs.filter(date__lte=date_to)
-        rows = [
-            {
-                "id": row.id,
-                "branch_id": row.branch_id,
-                "branch_name": row.branch.name if row.branch else "",
-                "date": row.date.isoformat(),
-            }
-            for row in qs.order_by("date", "id")
-        ]
+        rows = [open_day_row_dict(row) for row in qs.order_by("date", "id")]
         return Response(response_message.success(rows, "success"), status=status.HTTP_200_OK)
 
 
@@ -1066,14 +1074,19 @@ class AdminBookingOpenDayBulkView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        ensure_branch_timings(branch)
+        hours = normalize_booking_hours(request.data.get("hours"))
+        timing_qs = timings_for_hours(branch, hours)
+
         created = 0
         skipped = 0
         for day in iter_dates_inclusive(start, end):
             if skip_fridays and day.weekday() == 4:
                 skipped += 1
                 continue
-            _, was_created = BranchBookingOpenDay.objects.get_or_create(branch=branch, date=day)
+            open_day, was_created = BranchBookingOpenDay.objects.get_or_create(
+                branch=branch, date=day
+            )
+            open_day.enabled_times.set(timing_qs)
             if was_created:
                 created += 1
             else:
@@ -1087,6 +1100,7 @@ class AdminBookingOpenDayBulkView(APIView):
                     "branch_id": branch.id,
                     "date_from": start.isoformat(),
                     "date_to": end.isoformat(),
+                    "hours": hours,
                 },
                 "success",
             ),
@@ -1135,6 +1149,43 @@ class AdminBookingOpenDayBulkView(APIView):
                 },
                 "success",
             ),
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminBookingOpenDayDetailView(APIView):
+    """Update open time slots for a single calendar day."""
+
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, pk, *args, **kwargs):
+        open_day = get_object_or_404(
+            BranchBookingOpenDay.objects.select_related("branch").prefetch_related(
+                "enabled_times"
+            ),
+            pk=pk,
+        )
+        hours = request.data.get("hours")
+        if hours is None:
+            return Response(
+                response_message.error("error", "hours is required (list of 9–18)"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        normalized = normalize_booking_hours(hours)
+        if not normalized:
+            return Response(
+                response_message.error("error", "Select at least one hour between 9 and 18"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        timing_qs = timings_for_hours(open_day.branch, normalized)
+        open_day.enabled_times.set(timing_qs)
+        open_day = (
+            BranchBookingOpenDay.objects.select_related("branch")
+            .prefetch_related("enabled_times")
+            .get(pk=pk)
+        )
+        return Response(
+            response_message.success(open_day_row_dict(open_day), "success"),
             status=status.HTTP_200_OK,
         )
 

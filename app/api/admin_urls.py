@@ -16,6 +16,11 @@ urlpatterns = [
         name="admin_booking_open_days_bulk",
     ),
     path(
+        "booking_open_days/<int:pk>/",
+        admin_views.AdminBookingOpenDayDetailView.as_view(),
+        name="admin_booking_open_day_detail",
+    ),
+    path(
         "booking_open_days/",
         admin_views.AdminBookingOpenDayListView.as_view(),
         name="admin_booking_open_days",
