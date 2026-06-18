@@ -409,6 +409,52 @@ class HomeBannerPublicSerializer(serializers.ModelSerializer):
 
 
 class SiteContactSettingsSerializer(serializers.ModelSerializer):
+    def _normalized_winch_contacts(self, raw):
+        out = []
+        if isinstance(raw, list):
+            for row in raw:
+                if not isinstance(row, dict):
+                    continue
+                name = (row.get("name") or "").strip()
+                phone = (row.get("phone_e164") or row.get("phone") or "").strip()
+                if phone:
+                    out.append({"name": name, "phone_e164": phone})
+        return out
+
+    def validate(self, attrs):
+        contacts = attrs.get("winch_contacts", serializers.empty)
+        if contacts is not serializers.empty:
+            attrs["winch_contacts"] = self._normalized_winch_contacts(contacts)
+            rows = attrs["winch_contacts"]
+            attrs["winch_primary"] = rows[0]["phone_e164"] if len(rows) > 0 else ""
+            attrs["winch_secondary"] = rows[1]["phone_e164"] if len(rows) > 1 else ""
+            return attrs
+
+        legacy_touched = "winch_primary" in attrs or "winch_secondary" in attrs
+        if legacy_touched:
+            p1 = (attrs.get("winch_primary", getattr(self.instance, "winch_primary", "")) or "").strip()
+            p2 = (attrs.get("winch_secondary", getattr(self.instance, "winch_secondary", "")) or "").strip()
+            rows = []
+            if p1:
+                rows.append({"name": "Line 1", "phone_e164": p1})
+            if p2:
+                rows.append({"name": "Line 2", "phone_e164": p2})
+            attrs["winch_contacts"] = rows
+        return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        rows = self._normalized_winch_contacts(data.get("winch_contacts"))
+        if not rows:
+            p1 = (data.get("winch_primary") or "").strip()
+            p2 = (data.get("winch_secondary") or "").strip()
+            if p1:
+                rows.append({"name": "Line 1", "phone_e164": p1})
+            if p2:
+                rows.append({"name": "Line 2", "phone_e164": p2})
+        data["winch_contacts"] = rows
+        return data
+
     class Meta:
         model = SiteContactSettings
         fields = (
@@ -417,6 +463,7 @@ class SiteContactSettingsSerializer(serializers.ModelSerializer):
             "tech_hotline_e164",
             "winch_primary",
             "winch_secondary",
+            "winch_contacts",
             "app_theme_default",
             "user_can_change_theme",
             "new_user_default_points",

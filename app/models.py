@@ -427,6 +427,12 @@ class SiteContactSettings(TimestampedModel):
     tech_hotline_e164 = models.CharField(max_length=32, blank=True, default="")
     winch_primary = models.CharField(max_length=64, blank=True, default="")
     winch_secondary = models.CharField(max_length=64, blank=True, default="")
+    # [{name: "...", phone_e164: "+20..."}, ...]
+    winch_contacts = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Roadside/winch phone list shown in the app.",
+    )
     # App theming: default when user is not allowed to pick, or initial recommendation.
     app_theme_default = models.CharField(
         max_length=16,
