@@ -1,7 +1,8 @@
 import datetime
 import logging
 
-from django.db.models import Q
+from django.db import transaction
+from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -647,9 +648,14 @@ class AdminBranchDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class AdminCarModelsListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
-    queryset = CarModels.objects.all().order_by("car_model")
+    queryset = CarModels.objects.all().order_by("sort_order", "id")
     serializer_class = CarModelSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    def perform_create(self, serializer):
+        max_order = CarModels.objects.aggregate(m=Max("sort_order"))["m"]
+        next_order = (max_order if max_order is not None else -1) + 1
+        serializer.save(sort_order=next_order)
 
     def list(self, request, *args, **kwargs):
         resp = super().list(request, *args, **kwargs)
@@ -690,6 +696,42 @@ class AdminCarModelDetailView(generics.RetrieveUpdateDestroyAPIView):
         super().destroy(request, *args, **kwargs)
         return Response(
             response_message.success({"deleted": True}, "success"),
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminCarModelsReorderView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        order = request.data.get("order")
+        if not isinstance(order, list) or not order:
+            return Response(
+                response_message.error("error", "order must be a non-empty list of model ids"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ids = []
+        for raw in order:
+            try:
+                ids.append(int(raw))
+            except (TypeError, ValueError):
+                return Response(
+                    response_message.error("error", "order must contain only integer ids"),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        existing = set(
+            CarModels.objects.filter(id__in=ids).values_list("id", flat=True)
+        )
+        if len(existing) != len(ids):
+            return Response(
+                response_message.error("error", "order contains unknown model ids"),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            for index, model_id in enumerate(ids):
+                CarModels.objects.filter(id=model_id).update(sort_order=index)
+        return Response(
+            response_message.success({"reordered": len(ids)}, "success"),
             status=status.HTTP_200_OK,
         )
 

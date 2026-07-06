@@ -21,7 +21,7 @@ class ListCarModel(generics.ListAPIView):
     # permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        car_model = CarModels.objects.all()
+        car_model = CarModels.objects.all().order_by("sort_order", "id")
         serializer = CarModelSerializer(car_model, many=True, context={"request": request})
         return Response(response_message.success(serializer.data, success_key="success"), status=status.HTTP_200_OK)
 

@@ -29,6 +29,7 @@ urlpatterns = [
     path("loyalty_levels/", admin_views.AdminLoyaltyListView.as_view(), name="admin_loyalty"),
     path("branches/", admin_views.AdminBranchesListCreateView.as_view(), name="admin_branches"),
     path("branches/<int:pk>/", admin_views.AdminBranchDetailView.as_view(), name="admin_branch_detail"),
+    path("car_models/reorder/", admin_views.AdminCarModelsReorderView.as_view(), name="admin_car_models_reorder"),
     path("car_models/<int:pk>/", admin_views.AdminCarModelDetailView.as_view(), name="admin_car_model_detail"),
     path("car_models/", admin_views.AdminCarModelsListCreateView.as_view(), name="admin_car_models"),
     path("user_cars/", admin_views.AdminUserCarsListView.as_view(), name="admin_user_cars"),

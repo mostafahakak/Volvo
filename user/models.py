@@ -148,6 +148,10 @@ class CarModels(TimestampedModel):
     year_to = models.IntegerField(null=True, blank=True)
     model_type = models.CharField(max_length=255, blank=True, null=True)
     details = models.TextField(blank=True, null=True)
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order", "id")
 
     def __str__(self):
         return self.car_model
