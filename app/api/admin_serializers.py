@@ -485,7 +485,7 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
             for row in raw:
                 if not isinstance(row, dict):
                     continue
-                name = (row.get("name") or "").strip()
+                name = (row.get("area") or row.get("name") or "").strip()
                 phone = (row.get("phone_e164") or row.get("phone") or "").strip()
                 if phone:
                     out.append({"name": name, "phone_e164": phone})
@@ -506,9 +506,9 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
             p2 = (attrs.get("winch_secondary", getattr(self.instance, "winch_secondary", "")) or "").strip()
             rows = []
             if p1:
-                rows.append({"name": "Line 1", "phone_e164": p1})
+                rows.append({"name": "", "phone_e164": p1})
             if p2:
-                rows.append({"name": "Line 2", "phone_e164": p2})
+                rows.append({"name": "", "phone_e164": p2})
             attrs["winch_contacts"] = rows
         return attrs
 
@@ -519,10 +519,12 @@ class AdminSiteContactSerializer(serializers.ModelSerializer):
             p1 = (data.get("winch_primary") or "").strip()
             p2 = (data.get("winch_secondary") or "").strip()
             if p1:
-                rows.append({"name": "Line 1", "phone_e164": p1})
+                rows.append({"name": "", "phone_e164": p1})
             if p2:
-                rows.append({"name": "Line 2", "phone_e164": p2})
+                rows.append({"name": "", "phone_e164": p2})
         data["winch_contacts"] = rows
+        for row in data["winch_contacts"]:
+            row["area"] = row.get("name", "")
         return data
 
     class Meta:

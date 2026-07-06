@@ -440,7 +440,7 @@ class SiteContactSettings(TimestampedModel):
     winch_contacts = models.JSONField(
         default=list,
         blank=True,
-        help_text="Roadside/winch phone list shown in the app.",
+        help_text="Third-party tow truck contact list (area + phone) shown in the app.",
     )
     # App theming: default when user is not allowed to pick, or initial recommendation.
     app_theme_default = models.CharField(
