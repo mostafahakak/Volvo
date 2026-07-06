@@ -141,6 +141,7 @@ class AdminBookingSerializer(serializers.ModelSerializer):
     services = serializers.SerializerMethodField()
     car_model = serializers.CharField(source="user_car.car_model.car_model", read_only=True)
     car_plate = serializers.CharField(source="user_car.plate_number", read_only=True)
+    car_vin = serializers.CharField(source="user_car.chassis_number", read_only=True)
 
     class Meta:
         model = Booking
@@ -160,6 +161,7 @@ class AdminBookingSerializer(serializers.ModelSerializer):
             "services",
             "car_model",
             "car_plate",
+            "car_vin",
             "created_at",
         )
 
