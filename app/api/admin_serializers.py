@@ -319,19 +319,43 @@ class AdminServiceSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["compatible_with_models"] = [
+        src = getattr(instance, "source_maintenance", None)
+        if src is not None:
+            data["price"] = src.approximate_price
+            data["compatible_with_models"] = [
+                {"id": c.id, "car_model": c.car_model}
+                for c in src.compatible_car_models.all()
+            ]
+            data["items_detail"] = [
+                {
+                    "id": i.id,
+                    "name": i.name,
+                    "name_ar": getattr(i, "name_ar", "") or "",
+                    "description": i.description,
+                    "price": i.price,
+                }
+                for i in src.service_items.all()
+            ]
+            types = list(src.maintenance_types.all().order_by("sort_order", "id"))
+            data["source_maintenance_detail"] = {
+                "id": src.id,
+                "maintenance_type_names": ", ".join(t.name for t in types if t.name),
+                "approximate_price": src.approximate_price,
+            }
+        data["compatible_with_models"] = data.get("compatible_with_models") or [
             {"id": c.id, "car_model": c.car_model} for c in instance.compatible_with.all()
         ]
-        data["items_detail"] = [
-            {
-                "id": i.id,
-                "name": i.name,
-                "name_ar": getattr(i, "name_ar", "") or "",
-                "description": i.description,
-                "price": i.price,
-            }
-            for i in instance.items.all()
-        ]
+        if not data.get("items_detail"):
+            data["items_detail"] = [
+                {
+                    "id": i.id,
+                    "name": i.name,
+                    "name_ar": getattr(i, "name_ar", "") or "",
+                    "description": i.description,
+                    "price": i.price,
+                }
+                for i in instance.items.all()
+            ]
         url = (instance.icons_url or "").strip()
         if url:
             data["icons"] = url

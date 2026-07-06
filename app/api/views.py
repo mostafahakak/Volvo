@@ -175,6 +175,7 @@ class ListServices(generics.ListAPIView):
                 "compatible_with",
                 "source_maintenance__service_items",
                 "source_maintenance__compatible_car_models",
+                "source_maintenance__maintenance_types",
             )
         )
         cat = request.query_params.get("category_id")

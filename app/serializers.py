@@ -7,6 +7,7 @@ from volvo.firebase_storage import FirebaseUploadError, upload_catalog_file
 from app.models import MaintenanceSchedule, MaintenanceScheduleType, MyHistory, Branches, BranchSlot, Services, ServiceCategory, \
     ServiceItem, Accessories, UsedCar, UsedCarsImage, BookUsedCars, BookAccessories, AboutUS, FeedBack, ContactUS, \
     Timing, Booking, TechnicalAssistant, RoadAssistantRequest, SiteContactSettings, HomeBanner
+from app.maintenance_service_sync import ensure_service_for_schedule
 from user.models import CarModels, UserCars, UserNotification
 
 
@@ -257,6 +258,7 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             instance.service_items.set(items)
         if types is not None:
             instance.maintenance_types.set(types)
+        ensure_service_for_schedule(instance)
         self._sync_linked_services(instance)
         return instance
 
@@ -272,6 +274,7 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             instance.service_items.set(items)
         if types is not None:
             instance.maintenance_types.set(types)
+        ensure_service_for_schedule(instance)
         self._sync_linked_services(instance)
         return instance
 

@@ -52,6 +52,7 @@ from app.booking_calendar import (
     timings_for_branch_on_date,
     timings_for_hours,
 )
+from app.maintenance_service_sync import remove_services_for_schedule
 from app.serializers import CarModelSerializer, MaintenanceScheduleSerializer, BranchesSerializer, MaintenanceScheduleTypeSerializer
 from user.api.serializer import UserSerializer
 from user.models import Branches, CarModels, LoyaltyPoints, User, UserCars
@@ -769,6 +770,7 @@ class AdminServicesListCreateView(generics.ListCreateAPIView):
             "compatible_with",
             "source_maintenance__service_items",
             "source_maintenance__compatible_car_models",
+            "source_maintenance__maintenance_types",
         )
         .order_by("category__sort_order", "name")
     )
@@ -800,6 +802,7 @@ class AdminServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
             "compatible_with",
             "source_maintenance__service_items",
             "source_maintenance__compatible_car_models",
+            "source_maintenance__maintenance_types",
         )
     )
     serializer_class = AdminServiceSerializer
@@ -976,6 +979,8 @@ class AdminMaintenanceDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
     def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        remove_services_for_schedule(instance)
         super().destroy(request, *args, **kwargs)
         return Response(
             response_message.success({"deleted": True}, "success"),
