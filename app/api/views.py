@@ -169,8 +169,13 @@ class ListServices(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         qs = (
             Services.objects.all()
-            .select_related("category", "only_at_branch")
-            .prefetch_related("items", "compatible_with")
+            .select_related("category", "only_at_branch", "source_maintenance")
+            .prefetch_related(
+                "items",
+                "compatible_with",
+                "source_maintenance__service_items",
+                "source_maintenance__compatible_car_models",
+            )
         )
         cat = request.query_params.get("category_id")
         if cat:

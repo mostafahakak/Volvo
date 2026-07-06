@@ -64,6 +64,25 @@ class ServicesSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        # Services linked to a maintenance schedule always mirror its data so the
+        # client shows exactly what "Add maintenance schedule" defines.
+        src = getattr(instance, "source_maintenance", None)
+        if src is not None:
+            data["price"] = src.approximate_price
+            data["compatible_with_models"] = [
+                {"id": c.id, "car_model": c.car_model}
+                for c in src.compatible_car_models.all()
+            ]
+            data["items_detail"] = [
+                {
+                    "id": i.id,
+                    "name": i.name,
+                    "name_ar": getattr(i, "name_ar", "") or "",
+                    "description": i.description,
+                    "price": i.price,
+                }
+                for i in src.service_items.all()
+            ]
         url = (instance.icons_url or "").strip()
         if url:
             data["icons"] = url
@@ -216,6 +235,16 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             )
         return attrs
 
+    @staticmethod
+    def _sync_linked_services(instance):
+        """Keep every service linked to this schedule mirroring its data."""
+        for svc in instance.linked_services.all():
+            svc.items.set(instance.service_items.all())
+            svc.compatible_with.set(instance.compatible_car_models.all())
+            if svc.price != instance.approximate_price:
+                svc.price = instance.approximate_price
+                svc.save(update_fields=["price"])
+
     def create(self, validated_data):
         validated_data.pop("description", None)
         compatible = validated_data.pop("compatible_car_models", None)
@@ -228,6 +257,7 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             instance.service_items.set(items)
         if types is not None:
             instance.maintenance_types.set(types)
+        self._sync_linked_services(instance)
         return instance
 
     def update(self, instance, validated_data):
@@ -242,6 +272,7 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             instance.service_items.set(items)
         if types is not None:
             instance.maintenance_types.set(types)
+        self._sync_linked_services(instance)
         return instance
 
     def to_representation(self, instance):

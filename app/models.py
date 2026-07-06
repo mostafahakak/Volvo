@@ -122,6 +122,15 @@ class Services(TimestampedModel):
         blank=True,
         related_name="services",
     )
+    # When set, this service mirrors a maintenance schedule: items, compatible
+    # models, and price are always taken from the schedule (kept in sync).
+    source_maintenance = models.ForeignKey(
+        "MaintenanceSchedule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_services",
+    )
 
     def __str__(self):
         return self.name or f"Service #{self.pk}"

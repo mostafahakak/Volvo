@@ -287,10 +287,35 @@ class AdminServiceSerializer(serializers.ModelSerializer):
     compatible_with = serializers.PrimaryKeyRelatedField(
         queryset=CarModels.objects.all(), many=True, required=False
     )
+    source_maintenance = serializers.PrimaryKeyRelatedField(
+        queryset=MaintenanceSchedule.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Services
         fields = "__all__"
+
+    @staticmethod
+    def _sync_from_source(instance):
+        """When linked to a maintenance schedule, mirror its items/models/price."""
+        src = instance.source_maintenance
+        if not src:
+            return
+        instance.items.set(src.service_items.all())
+        instance.compatible_with.set(src.compatible_car_models.all())
+        if instance.price != src.approximate_price:
+            instance.price = src.approximate_price
+            instance.save(update_fields=["price"])
+
+    def create(self, validated_data):
+        instance = super().create(validated_data)
+        self._sync_from_source(instance)
+        return instance
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        self._sync_from_source(instance)
+        return instance
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

@@ -763,8 +763,13 @@ class AdminServicesListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
     queryset = (
         Services.objects.all()
-        .select_related("category", "only_at_branch")
-        .prefetch_related("items", "compatible_with")
+        .select_related("category", "only_at_branch", "source_maintenance")
+        .prefetch_related(
+            "items",
+            "compatible_with",
+            "source_maintenance__service_items",
+            "source_maintenance__compatible_car_models",
+        )
         .order_by("category__sort_order", "name")
     )
     serializer_class = AdminServiceSerializer
@@ -789,8 +794,13 @@ class AdminServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
     queryset = (
         Services.objects.all()
-        .select_related("category", "only_at_branch")
-        .prefetch_related("items", "compatible_with")
+        .select_related("category", "only_at_branch", "source_maintenance")
+        .prefetch_related(
+            "items",
+            "compatible_with",
+            "source_maintenance__service_items",
+            "source_maintenance__compatible_car_models",
+        )
     )
     serializer_class = AdminServiceSerializer
     parser_classes = (MultiPartParser, FormParser, JSONParser)
