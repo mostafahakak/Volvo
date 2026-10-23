@@ -2,7 +2,7 @@
 
 REST API for the Volvo mobile app: JWT authentication, cars, branches, bookings, loyalty, and content. Built with **Django 4.x**, **Django REST Framework**, and **Simple JWT**.
 
-**API guide:** [docs/API.md](docs/API.md)
+**Every endpoint, with the HTTP method, the JSON you send, and the JSON you get back:** [docs/API.md](docs/API.md)
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://app.postman.com/import/url?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmostafahakak%2FVolvo%2Fmain%2Fdocs%2FVolvo-API.postman_collection.json)
 
