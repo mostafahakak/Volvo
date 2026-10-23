@@ -330,6 +330,16 @@ class BranchesSerializer(serializers.ModelSerializer):
         model = Branches
         fields = "__all__"
 
+    def to_representation(self, instance):
+        from app.branch_geo import resolve_branch_lat_lng
+
+        data = super().to_representation(instance)
+        lat, lng = resolve_branch_lat_lng(instance)
+        if lat is not None and lng is not None:
+            data["latitude"] = str(lat)
+            data["langitude"] = str(lng)
+        return data
+
 
 class BranchSlotSerializer(serializers.ModelSerializer):
     class Meta:
