@@ -1247,29 +1247,6 @@ class AdminBookingOpenDayDetailView(APIView):
         )
 
 
-class AdminAccountExportView(APIView):
-    """Temporary staff-only account export for the server move. Remove after migration."""
-
-    permission_classes = [IsAdminUser]
-
-    def get(self, request, *args, **kwargs):
-        rows = []
-        for user in User.objects.all().order_by("id"):
-            rows.append(
-                {
-                    "id": user.id,
-                    "username": user.username,
-                    "password": user.password,
-                    "last_login": user.last_login.isoformat() if user.last_login else None,
-                    "is_superuser": user.is_superuser,
-                    "is_staff": user.is_staff,
-                    "is_active": user.is_active,
-                    "branch_id": user.branch_id,
-                }
-            )
-        return Response(rows)
-
-
 class AdminSiteContactView(APIView):
     permission_classes = [IsAdminUser]
 

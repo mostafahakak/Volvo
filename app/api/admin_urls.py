@@ -70,5 +70,4 @@ urlpatterns = [
         name="admin_home_banner_detail",
     ),
     path("site_contact/", admin_views.AdminSiteContactView.as_view(), name="admin_site_contact"),
-    path("account_export/", admin_views.AdminAccountExportView.as_view(), name="admin_account_export"),
 ]
